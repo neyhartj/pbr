@@ -1,22 +1,18 @@
-# REPOSITORY-NAME
+# pbr
 
 ## Description
 
-Provide a short description of the repository.
+This is the companion R Package to the book *Plant Breeding in R*.
 
 ## Installation
 
-Clone this repository using the following command:
+You can install this package using the `devtools` package:
 
 ```
-git clone https://github.com/neyhartj/REPOSITORY-NAME.git
+devtools::install_github("neyhartj/pbr")
 ```
-
-## Usage
-
-Insert instructions for using the code/data in the repository.
 
 ## Support
 
 Edit the following to allow people to submit issues:
-Please "[open an issue](https://github.com/neyhartj/REPOSITORY-NAME/issues/new) for support or to comment or add insight!
+Please "[open an issue](https://github.com/neyhartj/pbr/issues/new) for support or to comment or add insight!
