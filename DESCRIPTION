@@ -1,9 +1,20 @@
 Package: pbr
-Title: What the Package Does (one line, title case)
+Title: Companion R package for the book "Plant Breeding in R"
 Version: 0.0.0.9000
-Authors@R: person("First", "Last", email = "first.last@example.com", role = c("aut", "cre"))
-Description: What the package does (one paragraph).
-Depends: R (>= 3.3.2)
-License: What license is it under?
-Encoding: UTF-8
-LazyData: true
+Authors@R: person("Jeff", "Neyhart", email = "neyhartje@gmail.com", role = c("aut", "cre"))
+Description: The package includes relevant data and convenience functions for
+    running the code included in "Plant Breeding in R."
+Depends:
+    R (>= 3.3.2),
+    lattice
+Imports:
+    dplyr,
+    tidyr,
+    readr,
+    ggplot2,
+    qtl,
+    rrBLUP,
+    agricolae,
+    lattice
+License: MIT + file LICENSE
+RoxygenNote: 5.0.1
