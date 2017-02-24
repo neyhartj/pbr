@@ -20,16 +20,16 @@ The `pbr` package serves two purposes: 1) install and load necessary packages fo
 
 When you install `pbr`, the following packages are also installed:
 
-  Package         Purpose
--------------- --------------------
-  dplyr           Data management
-  tidyr           Data management
-  readr           Reading data
-  ggplot2         Plotting and graphics
-  qtl             QTL mapping and simulations
-  rrBLUP          GWAS and genomic selection
-  agricolae       Statistical analysis
-  lattice         Lattice graphics/data
+  Package      Purpose
+-------------- -----------------------------
+  dplyr        Data management
+  tidyr        Data management
+  readr        Reading data
+  ggplot2      Plotting and graphics
+  qtl          QTL mapping and simulations
+  rrBLUP       GWAS and genomic selection
+  agricolae    Statistical analysis
+  lattice      Lattice graphics/data
   
 Loading the `pbr` package also loads those packages:
 
@@ -41,10 +41,10 @@ library(pbr)
 
 The `pbr` package includes endogenous functions to support the other packages. Those include
 
-  Function            Purpose
----------------- ------------------------------
-  plot_AMMI()       Flexible plotting of AMMI models
-  dist_env()        Clustering of environments based on phenoypic observations
+  Function       Purpose
+---------------- -------------------------------------------------------------
+  plot_AMMI()    Flexible plotting of AMMI models
+  dist_env()     Clustering of environments based on phenoypic observations
 
 ## Support
 
