@@ -16,7 +16,9 @@
 #' arrows and text?
 #'
 #' @import dplyr
-#' @import ggplot
+#' @import ggplot2
+#'
+#' @export
 #'
 plot_AMMI <- function(AMMI.out, x = 0, y = 1, show.gen = TRUE, show.env = TRUE) {
 
