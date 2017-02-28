@@ -31,6 +31,8 @@ interactions are abundant and the correlation of genotype performance is close
 to \eqn{r_jj = -1}.
 }
 \examples{
+
+\dontrun{
 data("barley")
 
 # Convert to useable matrix
@@ -44,7 +46,6 @@ barley_mat <- barley \%>\%
 # Calculate distance
 barley_dist <- dist_env(barley_mat)
 
-\dontrun{
 # Environment dendrogram
 barley_clust <- hclust(barley_dist, method = "average")
 plot(barley_clust)

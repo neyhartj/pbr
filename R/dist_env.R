@@ -24,6 +24,8 @@
 #' can be used by clustering functions such as \code{\link[stats]{hclust}}.
 #'
 #' @examples
+#'
+#' \dontrun{
 #' data("barley")
 #'
 #' # Convert to useable matrix
@@ -37,7 +39,6 @@
 #' # Calculate distance
 #' barley_dist <- dist_env(barley_mat)
 #'
-#' \dontrun{
 #' # Environment dendrogram
 #' barley_clust <- hclust(barley_dist, method = "average")
 #' plot(barley_clust)
