@@ -4,13 +4,17 @@
 \alias{dist_env}
 \title{Environmental distance matrix}
 \usage{
-dist_env(x)
+dist_env(x, gen.col = "gen", env.col = "env", pheno.col = "yield")
 }
 \arguments{
-\item{x}{A \code{matrix} of phenotypic values of genotypes in each environment.
-The matrix should be of dimensions \code{i} x \code{j} where \code{i} is the
-number of genotypes and \code{j} is the number of environments. The matrix
-column names should be environment names.}
+\item{x}{A \code{data.frame} of phenotypic observations on genotypes in environments. The data.frame
+should be in tidy format, where every phenotypic observation has a separate row.}
+
+\item{gen.col}{The column name that contains the names of genotypes.}
+
+\item{env.col}{The column name that contains the names of environments.}
+
+\item{pheno.col}{The column name that contains the phenotypic observations.}
 }
 \value{
 A \code{dist} matrix of distances between environments. This \code{dist} object
@@ -34,13 +38,6 @@ to \eqn{r_jj = -1}.
 
 \dontrun{
 data("yang.barley")
-
-# Convert to useable matrix
-yang.barley.mat <- yang.barley \%>\%
-  select(gen, site, yield) \%>\%
-  spread(site, yield) \%>\%
-  select(-gen) \%>\%
-  as.matrix()
 
 # Calculate distance
 yang.barley.dist <- dist_env(yang.barley.mat)

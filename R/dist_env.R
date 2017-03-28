@@ -4,10 +4,11 @@
 #' Calculates the distance between environments based on the observed phenotypes
 #' of genotypes shared between environments.
 #'
-#' @param x A \code{matrix} of phenotypic values of genotypes in each environment.
-#' The matrix should be of dimensions \code{i} x \code{j} where \code{i} is the
-#' number of genotypes and \code{j} is the number of environments. The matrix
-#' column names should be environment names.
+#' @param x A \code{data.frame} of phenotypic observations on genotypes in environments. The data.frame
+#' should be in tidy format, where every phenotypic observation has a separate row.
+#' @param gen.col The column name that contains the names of genotypes.
+#' @param env.col The column name that contains the names of environments.
+#' @param pheno.col The column name that contains the phenotypic observations.
 #'
 #' @details
 #' The distance between environments (\eqn{D_jj}) cannot be less than \code{0}
@@ -28,15 +29,8 @@
 #' \dontrun{
 #' data("yang.barley")
 #'
-#' # Convert to useable matrix
-#' yang.barley.mat <- yang.barley %>%
-#'   select(gen, site, yield) %>%
-#'   spread(site, yield) %>%
-#'   select(-gen) %>%
-#'   as.matrix()
-#'
 #' # Calculate distance
-#' yang.barley.dist <- dist_env(yang.barley.mat)
+#' yang.barley.dist <- dist_env(x = yang.barley, env.col = "site")
 #'
 #' # Environment dendrogram
 #' yang.barley.clust <- hclust(yang.barley.dist, method = "average")
@@ -48,42 +42,63 @@
 #' @export
 #'
 #'
-dist_env <- function(x) {
+dist_env <- function(x, gen.col = "gen", env.col = "env", pheno.col = "yield") {
 
-  # Verify that x is a matrix
-  if (!is.matrix(x)) stop("x must be a matrix.")
+  # Verify that x is a data.frame
+  stopifnot(is.data.frame(x))
 
   # Verify columnnames exist
-  if (is.null(colnames(x))) stop("x must have column names (i.e. environment names).")
+  if (!all(c(gen.col, env.col, pheno.col) %in% colnames(x)))
+    stop("The values of gen.col or env.col or pheno.col are not columns in the x data.frame.")
+
+  # Pull out environment names
+  env <- x %>%
+    distinct_(.dots = env.col) %>%
+    unlist() %>%
+    as.character()
 
   # Number of environments
-  n.env <- ncol(x)
+  n_env <- length(env)
 
-  # Find all pairwise combinations
-  env.pairwise <- expand.grid(colnames(x), colnames(x))
+  # Iterate over pairs
+  D_ij <- combn(x = env, m = 2, FUN = function(env_pairs) {
 
-  # Apply a function over these pairs
-  D_jj <- apply(X = env.pairwise, MARGIN = 1, FUN = function(env.pairs) {
+    # Subset the data for the environments and common genotypes
+    ## First set lazy evaluations of the filter criteria
+    filter_criteria <- lazyeval::interp(~ col %in% env_pairs, col = as.name(env.col))
+    ## Do the same for the summary
+    summarize_exp <- lazyeval::interp(~ mean(val), val = as.name(pheno.col))
 
-    # Subset the data
-    x[,as.character(as.matrix(env.pairs))] %>%
+    x_sub <- x %>%
+      filter_(filter_criteria) %>%
+      # Calculate the mean among genotypes in that environment
+      group_by_(.dots = c(env.col, gen.col)) %>%
+      summarize_(value = summarize_exp) %>%
+      # Filter genotypes with less than 2 obs
+      group_by_(.dots = gen.col) %>%
+      filter(n() == 2)
 
-      # In each environment, calculate the deviation from each observation to the mean of
-      # all observation and divide by the sd of all observations
-      # Then find the mean squared differences. This is the distance
-      apply(MARGIN = 2, FUN = function(p) (p - mean(p, na.rm = T)) / sd(p, na.rm = T)) %>%
-      # Subset the complete cases
-      na.omit() %>%
-      # Square the difference
-      apply(MARGIN = 1, FUN = function(pairs) diff(pairs)^2) %>%
+    # In each environment, calculate the deviation from each observation to the mean of
+    # all observation and divide by the sd of all observations (`scale` function)
+    # Then find the mean squared differences. This is the distance
+    x_sub %>%
+      group_by_(.dots = env.col) %>%
+      mutate(t_ij = scale(value)) %>%
+      group_by_(.dots = gen.col) %>%
+      do(diff_sq = diff(.$t_ij)^2) %>%
+      select(diff_sq) %>%
+      unlist() %>%
       mean()
 
   })
 
-  # Create matrix
-  env_mat <- matrix(data = D_jj, nrow = n.env, ncol = n.env, dimnames = list(colnames(x), colnames(x)))
+  # Empty matrix
+  D_mat <- matrix(0, nrow = n_env, ncol = n_env, dimnames = list(env, env))
+
+  # Add data
+  D_mat[lower.tri(D_mat)] <- D_ij
 
   # Output as distance matrix
-  as.dist(env_mat)
+  as.dist(D_mat)
 
-}
+} # Close the fuction
