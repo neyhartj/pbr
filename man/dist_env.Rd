@@ -33,22 +33,21 @@ to \eqn{r_jj = -1}.
 \examples{
 
 \dontrun{
-data("barley")
+data("yang.barley")
 
 # Convert to useable matrix
-barley_mat <- barley \%>\%
-  mutate(env = paste(site, year, sep = "_")) \%>\%
-  select(variety, env, yield) \%>\%
-  spread(env, yield) \%>\%
-  select(-1) \%>\%
+yang.barley.mat <- yang.barley \%>\%
+  select(gen, site, yield) \%>\%
+  spread(site, yield) \%>\%
+  select(-gen) \%>\%
   as.matrix()
 
 # Calculate distance
-barley_dist <- dist_env(barley_mat)
+yang.barley.dist <- dist_env(yang.barley.mat)
 
 # Environment dendrogram
-barley_clust <- hclust(barley_dist, method = "average")
-plot(barley_clust)
+yang.barley.clust <- hclust(yang.barley.dist, method = "average")
+plot(yang.barley.clust)
 }
 
 }

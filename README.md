@@ -1,51 +1,73 @@
-# pbr
 
-## Description
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+pbr
+===
+
+Description
+-----------
 
 This is the companion R Package to the book *Plant Breeding in R*. It is primarily used to load all of the packages necessary for completing the tasks outlined in *Plant Breeding in R*. However, there are some functions that are provided within the package that may be useful.
 
-## Installation
+Installation
+------------
 
 You can install this package using the `devtools` package:
 
-```
+``` r
 devtools::install_github("neyhartj/pbr")
 ```
 
-## Purpose
+When you install `pbr`, a number of other packages are installed. The **core** set of packages - those that you might need for most analyses - include:
 
-The `pbr` package serves two purposes: 1) install and load necessary packages for analysis, and 2) provide additional functions.
+-   `dplyr`, `tidyr`, and `readr`, for data management
+-   `ggplot2`, for visualization
+-   `lme4`, for fitting mixed-effect models
+-   `agridat`, for various agricultural experiment data
 
-### Installed Packages
+Additionally, other packages are installed that may be useful for specialized analysis, including those for:
 
-When you install `pbr`, the following packages are also installed:
+-   Managing genetic experiments and QTL mapping
 
-  Package      Purpose
--------------- -----------------------------
-  dplyr        Data management
-  tidyr        Data management
-  readr        Reading data
-  ggplot2      Plotting and graphics
-  qtl          QTL mapping and simulations
-  rrBLUP       GWAS and genomic selection
-  agricolae    Statistical analysis
-  lattice      Lattice graphics/data
-  
-Loading the `pbr` package also loads those packages:
+    -   `qtl`, for QTL mapping and simulations
+    -   `rrBLUP`, for GWAS and genomic selection
+-   Statistics:
 
-```
+    -   `agricolae`, for statistical procedures in agriculture research
+    -   `BGLR`, for Bayesian linear regression
+    -   `lsmeans`, for calculating least-square means
+
+Usage
+-----
+
+Loading the `pbr` package also loads the **core** set of packages (dplyr, tidyr, readr, ggplot, lme4, agridat):
+
+``` r
 library(pbr)
+#> Loading pbr: ggplot2
+#> Loading pbr: tidyr
+#> Loading pbr: readr
+#> Loading pbr: dplyr
+#> Loading pbr: lme4
+#> Loading pbr: agridat
 ```
 
-### Functions
+Packages that are not in the core set must be loaded individually using the `library()` function, for instance:
+
+``` r
+library(qtl)
+```
+
+Functions
+---------
 
 The `pbr` package includes endogenous functions to support the other packages. Those include
 
-  Function       Purpose
----------------- -------------------------------------------------------------
-  plot_AMMI()    Flexible plotting of AMMI models
-  dist_env()     Clustering of environments based on phenoypic observations
+|   Function   | Purpose                                                       |
+|:------------:|:--------------------------------------------------------------|
+| plot\_AMMI() | Flexible plotting of AMMI models from the `agricolae` package |
+|  dist\_env() | Clustering of environments based on phenoypic observations    |
 
-## Support
+Support
+-------
 
 Please [open an issue](https://github.com/neyhartj/pbr/issues/new) for support or to comment.
