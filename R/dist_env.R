@@ -46,6 +46,9 @@ dist_env <- function(x, gen.col = "gen", env.col = "env", pheno.col = "yield") {
 
   # Verify that x is a data.frame
   stopifnot(is.data.frame(x))
+  
+  # Convert to data.frame
+  x <- as.data.frame(x)
 
   # Verify columnnames exist
   if (!all(c(gen.col, env.col, pheno.col) %in% colnames(x)))

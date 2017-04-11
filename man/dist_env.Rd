@@ -40,7 +40,7 @@ to \eqn{r_jj = -1}.
 data("yang.barley")
 
 # Calculate distance
-yang.barley.dist <- dist_env(yang.barley.mat)
+yang.barley.dist <- dist_env(x = yang.barley, env.col = "site")
 
 # Environment dendrogram
 yang.barley.clust <- hclust(yang.barley.dist, method = "average")
