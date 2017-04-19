@@ -25,7 +25,7 @@ devtools::install_github("neyhartj/pbr")
 
 When you install `pbr`, a number of other packages are installed. The **core** set of packages - those that you might need for most analyses - include:
 
-- `dplyr`, `tidyr`, and `readr`, for data management
+- `dplyr`, `tidyr`, `readr`, for data management and modeling
 - `ggplot2`, for visualization
 - `lme4`, for fitting mixed-effect models
 - `agridat`, for various agricultural experiment data
@@ -63,10 +63,11 @@ library(qtl)
 
 The `pbr` package includes endogenous functions to support the other packages. Those include
 
-  Function       Purpose
----------------- ---------------------------------------------------------------
-  plot_AMMI()    Flexible plotting of AMMI models from the `agricolae` package
-  dist_env()     Clustering of environments based on phenoypic observations
+  Function           Purpose
+------------------- ---------------------------------------------------------------
+  `dist_env()`       Clustering of environments based on phenoypic observations
+  `herit()`          Estimating heritability and variance components from fitted model object
+  `herit_boot()`     Calculating confidence intervals for heritability based on bootstrapping
 
 ## Support
 

@@ -62,10 +62,11 @@ Functions
 
 The `pbr` package includes endogenous functions to support the other packages. Those include
 
-|   Function   | Purpose                                                       |
-|:------------:|:--------------------------------------------------------------|
-| plot\_AMMI() | Flexible plotting of AMMI models from the `agricolae` package |
-|  dist\_env() | Clustering of environments based on phenoypic observations    |
+|    Function    |                                  Purpose                                 |
+|:--------------:|:------------------------------------------------------------------------:|
+|  `dist_env()`  |        Clustering of environments based on phenoypic observations        |
+|    `herit()`   | Estimating heritability and variance components from fitted model object |
+| `herit_boot()` | Calculating confidence intervals for heritability based on bootstrapping |
 
 Support
 -------

@@ -17,6 +17,9 @@ Imports:
     agricolae,
     lsmeans,
     lme4,
-    agridat,
+    agridat
+Suggests:
+    modelr,
+    purrr
 License: MIT + file LICENSE
 RoxygenNote: 5.0.1
