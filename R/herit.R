@@ -80,9 +80,9 @@ herit.lm <- function(object, geno.term, env.term = NULL, ge.term = NULL) {
 
   # Make sure all the object terms are in the arguments
   terms_not_in_args <- setdiff(object_terms, arg_terms)
-  # Error out
+  # Send a warning
   if (length(terms_not_in_args) > 0)
-    stop("The term(s) '", terms_not_in_args, "' were in the model object but not in the arguments.")
+    warning("The term(s) '", terms_not_in_args, "' were in the model object but not in the arguments.")
 
   # First pull out the model frame
   object_mf <- model.frame(object)
@@ -192,9 +192,9 @@ herit.lmerMod <- function(object, geno.term, env.term = NULL, ge.term = NULL) {
 
   # Make sure all the object terms are in the arguments
   terms_not_in_args <- setdiff(object_terms, arg_terms)
-  # Error out
+  # Send a warning
   if (length(terms_not_in_args) > 0)
-    stop("The term(s) '", paste0(terms_not_in_args, collapse = ", "), "' were in the model object but not in the arguments.")
+    warning("The term(s) '", terms_not_in_args, "' were in the model object but not in the arguments.")
 
   # First pull out the model frame
   object_mf <- model.frame(object)

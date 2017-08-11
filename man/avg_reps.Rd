@@ -9,4 +9,3 @@ avg_reps(x)
 \description{
 Convenience functions. These are generally not to be called by the user
 }
-

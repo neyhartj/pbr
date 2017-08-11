@@ -48,4 +48,3 @@ plot(yang.barley.clust)
 }
 
 }
-

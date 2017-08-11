@@ -32,4 +32,3 @@ ignore multiple environments, if present.}
 \description{
 Heritability confidence interval by bootstrap
 }
-
