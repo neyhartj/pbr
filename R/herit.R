@@ -122,7 +122,7 @@ herit.lm <- function(object, geno.term, env.term = NULL, ge.term = NULL) {
 
     # Harmonic means of plots and environments
     e_h <- harm_mean(e_j)
-    p_h <- harm_mean(rep_table)
+    p_h <- harm_mean(rowSums(rep_table))
 
     # Was V_GE empty? Correctly calculate heritability
     if (length(MS_ge) == 0) {
@@ -160,7 +160,7 @@ herit.lm <- function(object, geno.term, env.term = NULL, ge.term = NULL) {
     # Table of reps per genotype per environment
     rep_table <- table(object_mf[,c(geno.term, env.term)])
 
-    p_h <- harm_mean(rep_table)
+    p_h <- harm_mean(rowSums(rep_table))
 
     # Estimate the genetic variance
     V_G <- (MS_geno - MS_error) / p_h
@@ -239,7 +239,7 @@ herit.lmerMod <- function(object, geno.term, env.term = NULL, ge.term = NULL) {
 
     # Harmonic means of plots and environments
     e_h <- harm_mean(e_j)
-    p_h <- harm_mean(rep_table)
+    p_h <- harm_mean(rowSums(rep_table))
 
     # Was V_GE empty? Correctly calculate heritability
     if (length(V_GE) == 0) {
@@ -268,7 +268,7 @@ herit.lmerMod <- function(object, geno.term, env.term = NULL, ge.term = NULL) {
     # Table of reps per genotype per environment
     rep_table <- table(object_mf[,c(geno.term, env.term)])
 
-    p_h <- harm_mean(rep_table)
+    p_h <- harm_mean(rowSums(rep_table))
 
     # Calculate heritability
     h <- V_G / (V_G + (V_R / p_h))
