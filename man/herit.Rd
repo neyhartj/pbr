@@ -17,7 +17,7 @@ herit(object, ...)
   alpha = 0.05)
 }
 \arguments{
-\item{object}{A model object of class \code{lm}, \code{aov}, \code{glm}, or \code{lmer}.}
+\item{object}{A model object. See \emph{Details} for accepted classes. of class \code{lm}, \code{aov}, \code{glm}, or \code{lmer}.}
 
 \item{geno.term}{A character vector giving the model term for genotypes.}
 
@@ -29,6 +29,17 @@ ignore multiple environments, if present.}
 }
 \description{
 Calculates the heritability (on an entry-mean basis) of a trait given a fitted model object
+}
+\details{
+Accepted classes for \code{object} are:
+
+\itemize{
+  \item{\code{lm}}
+  \item{\code{aov}}
+  \item{\code{glm}}
+  \item{\code{lmer}}
+  \item{\code{mmer}}
+}
 }
 \examples{
 

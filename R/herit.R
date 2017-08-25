@@ -3,13 +3,24 @@
 #' @description
 #' Calculates the heritability (on an entry-mean basis) of a trait given a fitted model object
 #'
-#' @param object A model object of class \code{lm}, \code{aov}, \code{glm}, or \code{lmer}.
+#' @param object A model object. See \emph{Details} for accepted classes. of class \code{lm}, \code{aov}, \code{glm}, or \code{lmer}.
 #' @param geno.term A character vector giving the model term for genotypes.
 #' @param env.term A character vector giving the model term for environments. If \code{NULL} (default),
 #' heritability is calculated within one environment. Note that \code{env.term = NULL} will
 #' ignore multiple environments, if present.
 #' @param ge.term A character vector giving the model term for genotype-by-environment interaction.
 #'
+#' @details
+#'
+#' Accepted classes for \code{object} are:
+#'
+#' \itemize{
+#'   \item{\code{lm}}
+#'   \item{\code{aov}}
+#'   \item{\code{glm}}
+#'   \item{\code{lmer}}
+#'   \item{\code{mmer}}
+#' }
 #'
 #' @examples
 #'
@@ -76,13 +87,13 @@ herit.lm <- function(object, geno.term, env.term = NULL, ge.term = NULL) {
   args_not_in_model <- setdiff(arg_terms, object_terms)
   # Error out
   if (length(args_not_in_model) > 0)
-    stop("The argument(s) '", args_not_in_model, "' were in the arguments but not in the model object.")
+    stop("The argument(s) '", paste0(args_not_in_model, collapse = ", "), "' were in the arguments but not in the model object.")
 
   # Make sure all the object terms are in the arguments
   terms_not_in_args <- setdiff(object_terms, arg_terms)
   # Send a warning
   if (length(terms_not_in_args) > 0)
-    warning("The term(s) '", terms_not_in_args, "' were in the model object but not in the arguments.")
+    warning("The term(s) '", paste0(terms_not_in_args, collapse = ", "), "' were in the model object but not in the arguments.")
 
   # First pull out the model frame
   object_mf <- model.frame(object)
@@ -97,8 +108,6 @@ herit.lm <- function(object, geno.term, env.term = NULL, ge.term = NULL) {
   ## combinations is the same as the number of genotypes
   if (!is.null(env.term)) {
 
-    n_env <- n_distinct(object_mf[,env.term])
-
     # Get the estimate of the mean squares
     MS_geno <- anova_table[geno.term, "Mean Sq"]
     MS_ge <- anova_table[ge.term, "Mean Sq"]
@@ -108,32 +117,36 @@ herit.lm <- function(object, geno.term, env.term = NULL, ge.term = NULL) {
     # Table of reps per genotype per environment
     rep_table <- table(object_mf[,c(geno.term, env.term)])
 
-    # Calculate the average number of reps
-    mu_rep <- avg_reps(rep_table)
+    # Count the number of environments per genotype
+    e_j <- apply(rep_table, MARGIN = 1, FUN = function(geno) sum(geno > 0))
+
+    # Harmonic means of plots and environments
+    e_h <- harm_mean(e_j)
+    p_h <- harm_mean(rep_table)
 
     # Was V_GE empty? Correctly calculate heritability
     if (length(MS_ge) == 0) {
 
       # Estimate the genetic variance
-      V_G <- (MS_geno - MS_error) / (mu_rep)
+      V_G <- (MS_geno - MS_error) / (p_h)
       # Residual variance
       V_R <- MS_error
 
       V_GE <- NA
 
-      h <- V_G / (V_G + (V_R / mu_rep))
+      h <- V_G / (V_G + (V_R / p_h))
 
     } else {
       # Calculate normally
 
       # Estimate the genetic variance
-      V_G <- (MS_geno - MS_ge) / (mu_rep * n_env)
+      V_G <- (MS_geno - MS_ge) / (p_h * e_h)
       # Estimate GxE variance
-      V_GE <- (MS_ge - MS_error) / mu_rep
+      V_GE <- (MS_ge - MS_error) / p_h
       # Residual variance
       V_R <- MS_error
 
-      h <- V_G / (V_G + (V_GE / n_env) + (V_R / (mu_rep * n_env)))
+      h <- V_G / (V_G + (V_GE / e_h) + (V_R / (p_h * e_h)))
 
     }
 
@@ -144,22 +157,20 @@ herit.lm <- function(object, geno.term, env.term = NULL, ge.term = NULL) {
     MS_geno <- anova_table[geno.term, "Mean Sq"]
     MS_error <- anova_table["Residuals", "Mean Sq"]
 
-    ## Determine the number of replicates per genotype per environment
     # Table of reps per genotype per environment
-    rep_table <- table(object_mf[,c(geno.term)])
+    rep_table <- table(object_mf[,c(geno.term, env.term)])
 
-    # Calculate the average number of reps
-    mu_rep <- avg_reps(rep_table)
+    p_h <- harm_mean(rep_table)
 
     # Estimate the genetic variance
-    V_G <- (MS_geno - MS_error) / mu_rep
+    V_G <- (MS_geno - MS_error) / p_h
     # V_GE is NULL
     V_GE <- NA
     # Residual variance
     V_R <- MS_error
 
     # Heritability on an entry-mean basis
-    h <- V_G / (V_G + (V_R / mu_rep))
+    h <- V_G / (V_G + (V_R / p_h))
 
   }
 
@@ -194,7 +205,7 @@ herit.lmerMod <- function(object, geno.term, env.term = NULL, ge.term = NULL) {
   terms_not_in_args <- setdiff(object_terms, arg_terms)
   # Send a warning
   if (length(terms_not_in_args) > 0)
-    warning("The term(s) '", terms_not_in_args, "' were in the model object but not in the arguments.")
+    warning("The term(s) '", paste0(terms_not_in_args, collapse = ", "), "' were in the model object but not in the arguments.")
 
   # First pull out the model frame
   object_mf <- model.frame(object)
@@ -216,25 +227,30 @@ herit.lmerMod <- function(object, geno.term, env.term = NULL, ge.term = NULL) {
     V_GE <- subset(vcor, grp == ge.term, vcov, drop = TRUE)
     V_R <- subset(vcor, grp == "Residual", vcov, drop = TRUE)
 
+    ## Calculate the harmonic mean of the number of environments
+
+
     ## Determine the number of replicates per genotype per environment
     # Table of reps per genotype per environment
     rep_table <- table(object_mf[,c(geno.term, env.term)])
 
-    # Calculate the average number of reps
-    mu_rep <- avg_reps(rep_table)
-    # Number of environments
-    n_env <- n_distinct(object_mf[,env.term])
+    # Count the number of environments per genotype
+    e_j <- apply(rep_table, MARGIN = 1, FUN = function(geno) sum(geno > 0))
+
+    # Harmonic means of plots and environments
+    e_h <- harm_mean(e_j)
+    p_h <- harm_mean(rep_table)
 
     # Was V_GE empty? Correctly calculate heritability
     if (length(V_GE) == 0) {
       V_GE <- NA
 
-      h <- V_G / (V_G + (V_R / mu_rep))
+      h <- V_G / (V_G + (V_R / p_h))
 
     } else {
       # Calculate normally
 
-      h <- V_G / (V_G + (V_GE / n_env) + (V_R / (mu_rep * n_env)))
+      h <- V_G / (V_G + (V_GE / e_h) + (V_R / (p_h * e_h)))
 
     }
 
@@ -250,13 +266,12 @@ herit.lmerMod <- function(object, geno.term, env.term = NULL, ge.term = NULL) {
 
     ## Determine the number of replicates per genotype per environment
     # Table of reps per genotype per environment
-    rep_table <- table(object_mf[,c(geno.term)])
+    rep_table <- table(object_mf[,c(geno.term, env.term)])
 
-    # Calculate the average number of reps
-    mu_rep <- avg_reps(rep_table)
+    p_h <- harm_mean(rep_table)
 
     # Calculate heritability
-    h <- V_G / (V_G + (V_R / mu_rep))
+    h <- V_G / (V_G + (V_R / p_h))
 
   }
 
