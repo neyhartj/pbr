@@ -30,11 +30,11 @@
 #' data("yang.barley")
 #'
 #' # Calculate distance
-#' yang.barley.dist <- dist_env(x = yang.barley, env.col = "site")
+#' yang_barley_dist <- dist_env(x = yang.barley, env.col = "site")
 #'
 #' # Environment dendrogram
-#' yang.barley.clust <- hclust(yang.barley.dist, method = "average")
-#' plot(yang.barley.clust)
+#' yang_barley_clust <- hclust(yang_barley_dist, method = "average")
+#' plot(yang_barley_clust)
 #' }
 #'
 #' @import dplyr
@@ -46,7 +46,7 @@ dist_env <- function(x, gen.col = "gen", env.col = "env", pheno.col = "yield") {
 
   # Verify that x is a data.frame
   stopifnot(is.data.frame(x))
-  
+
   # Convert to data.frame
   x <- as.data.frame(x)
 
@@ -55,9 +55,8 @@ dist_env <- function(x, gen.col = "gen", env.col = "env", pheno.col = "yield") {
     stop("The values of gen.col or env.col or pheno.col are not columns in the x data.frame.")
 
   # Pull out environment names
-  env <- x %>%
-    distinct_(.dots = env.col) %>%
-    unlist() %>%
+  env <- x[,env.col] %>%
+    unique() %>%
     as.character()
 
   # Number of environments
@@ -67,19 +66,26 @@ dist_env <- function(x, gen.col = "gen", env.col = "env", pheno.col = "yield") {
   D_ij <- combn(x = env, m = 2, FUN = function(env_pairs) {
 
     # Subset the data for the environments and common genotypes
-    ## First set lazy evaluations of the filter criteria
-    filter_criteria <- lazyeval::interp(~ col %in% env_pairs, col = as.name(env.col))
+    ## First set lazy evaluations of the filter criteria for environments
+    env_filter_criteria <- lazyeval::interp(~ col %in% env_pairs, col = as.name(env.col))
+    # Now for genotypes
+    geno_filter_criteria <- lazyeval::interp(~ col %in% x_geno, col = as.name(gen.col))
     ## Do the same for the summary
     summarize_exp <- lazyeval::interp(~ mean(val), val = as.name(pheno.col))
 
     x_sub <- x %>%
-      filter_(filter_criteria) %>%
-      # Calculate the mean among genotypes in that environment
+      filter_(env_filter_criteria) %>%
+      # Calculate the mean of each genotype in that environment
       group_by_(.dots = c(env.col, gen.col)) %>%
-      summarize_(value = summarize_exp) %>%
+      summarize_(value = summarize_exp)
+
+    # Find the genotypes that are common (i.e. 2 obs)
+    x_geno <- x_sub %>%
       # Filter genotypes with less than 2 obs
       group_by_(.dots = gen.col) %>%
-      filter(n() == 2)
+      filter(n() == 2) %>%
+      distinct(gen.col) %>%
+      pull()
 
     # In each environment, calculate the deviation from each observation to the mean of
     # all observation and divide by the sd of all observations (`scale` function)
@@ -87,10 +93,13 @@ dist_env <- function(x, gen.col = "gen", env.col = "env", pheno.col = "yield") {
     x_sub %>%
       group_by_(.dots = env.col) %>%
       mutate(t_ij = scale(value)) %>%
+      # Filter for genotypes that are found in both environments
+      filter_(geno_filter_criteria) %>%
       group_by_(.dots = gen.col) %>%
-      do(diff_sq = diff(.$t_ij)^2) %>%
-      select(diff_sq) %>%
-      unlist() %>%
+      summarize(diff_sq = diff(t_ij)^2) %>%
+      pull(diff_sq) %>%
+      # Since the difference between t_ij is only for the common genotypes, the mean
+      # at this point is division by the number of common genotypes
       mean()
 
   })

@@ -17,7 +17,9 @@ Imports:
     agricolae,
     lsmeans,
     lme4,
-    agridat
+    agridat,
+    PopVar,
+    sommer
 Suggests:
     modelr,
     purrr
