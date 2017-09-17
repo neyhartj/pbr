@@ -9,5 +9,12 @@
 #'
 #' \eqn{e_h = n / \sum{\frac{1}{e_j}}}
 #'
+#' By default, the function will remove Infinite values and calculate the sum
+#' using non-missing values.
+#'
 #' @export
-harm_mean <- function(x) length(x) / sum(1 / x)
+harm_mean <- function(x) {
+  inv_x <- 1 / x
+  inv_x[is.infinite(inv_x)] <- NA
+  length(inv_x) / sum(inv_x, na.rm = TRUE)
+}
