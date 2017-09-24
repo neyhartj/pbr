@@ -4,16 +4,21 @@
 #'
 #'
 #'
-"geno_mat_ex"
+"popvar_data_genos"
 
 
 #' Example genetic map
 #'
 #'
-"map_ex"
+"popvar_data_map"
 
 
 #' Example phenotypic data
 #'
 #'
-"phenos_ex"
+"popvar_data_phenos"
+
+#' Genotypic data from the two-row barley CAP
+#'
+#'
+

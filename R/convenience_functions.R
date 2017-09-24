@@ -13,6 +13,7 @@
 #' using non-missing values.
 #'
 #' @export
+#'
 harm_mean <- function(x) {
   inv_x <- 1 / x
   inv_x[is.infinite(inv_x)] <- NA
