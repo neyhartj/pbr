@@ -2,30 +2,25 @@
 % Please edit documentation in R/herit_boot.R
 \name{herit_boot}
 \alias{herit_boot}
-\alias{herit_boot.lm}
 \alias{herit_boot.lmerMod}
 \title{Heritability confidence interval by bootstrap}
 \usage{
-herit_boot(object, ...)
+herit_boot(object, exp, boot.reps = 1000, ...)
 
-\method{herit_boot}{lm}(object, geno.term, env.term = NULL, ge.term = NULL,
-  boot.reps = 1000, alpha = 0.95)
-
-\method{herit_boot}{lmerMod}(object, geno.term, env.term = NULL,
-  ge.term = NULL, boot.reps = 1000, alpha = 0.95)
+\method{herit_boot}{lmerMod}(object, exp, boot.reps = 1000, ...)
 }
 \arguments{
-\item{object}{A model object of class \code{lm}, \code{aov}, \code{glm}, or \code{lmer}.}
+\item{object}{A model object. See \emph{Details} for accepted classes.}
 
-\item{geno.term}{A character vector giving the model term for genotypes.}
-
-\item{env.term}{A character vector giving the model term for environments. If \code{NULL} (default),
-heritability is calculated within one environment. Note that \code{env.term = NULL} will
-ignore multiple environments, if present.}
-
-\item{ge.term}{A character vector giving the model term for genotype-by-environment interaction.}
+\item{exp}{A quoted expression used to calculate the heritability. For instance,
+\code{"geno / (geno + (Residual / r))"}.}
 
 \item{boot.reps}{The number of bootsrap replicates.}
+
+\item{...}{Other arguments to pass. This is generally a list of other objects
+that are in \code{exp}, but may not be found in \code{object}. For instance, if
+the argument \code{exp = "geno / (geno + (Residual / r))"} was passed, you would
+also pass the argument \code{r = 2}.}
 
 \item{alpha}{The significance level for the confidence interval.}
 }

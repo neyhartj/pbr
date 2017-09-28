@@ -2,3 +2,4 @@
 .Rhistory
 .RData
 heritability_simulation.R
+inst/doc

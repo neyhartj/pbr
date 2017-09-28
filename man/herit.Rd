@@ -2,30 +2,27 @@
 % Please edit documentation in R/herit.R, R/lsd.R
 \name{herit}
 \alias{herit}
-\alias{herit.lm}
 \alias{herit.lmerMod}
 \alias{LSD.lm}
 \title{Calculate heritability from fitted model}
 \usage{
-herit(object, ...)
+herit(object, exp, ...)
 
-\method{herit}{lm}(object, geno.term, env.term = NULL, ge.term = NULL)
-
-\method{herit}{lmerMod}(object, geno.term, env.term = NULL, ge.term = NULL)
+\method{herit}{lmerMod}(object, exp, ...)
 
 \method{LSD}{lm}(object, geno.term, env.term = NULL, ge.term = NULL,
   alpha = 0.05)
 }
 \arguments{
-\item{object}{A model object. See \emph{Details} for accepted classes. of class \code{lm}, \code{aov}, \code{glm}, or \code{lmer}.}
+\item{object}{A model object. See \emph{Details} for accepted classes.}
 
-\item{geno.term}{A character vector giving the model term for genotypes.}
+\item{exp}{A quoted expression used to calculate the heritability. For instance,
+\code{"geno / (geno + (Residual / r))"}.}
 
-\item{env.term}{A character vector giving the model term for environments. If \code{NULL} (default),
-heritability is calculated within one environment. Note that \code{env.term = NULL} will
-ignore multiple environments, if present.}
-
-\item{ge.term}{A character vector giving the model term for genotype-by-environment interaction.}
+\item{...}{Other arguments to pass. This is generally a list of other objects
+that are in \code{exp}, but may not be found in \code{object}. For instance, if
+the argument \code{exp = "geno / (geno + (Residual / r))"} was passed, you would
+also pass the argument \code{r = 2}.}
 }
 \description{
 Calculates the heritability (on an entry-mean basis) of a trait given a fitted model object
@@ -34,11 +31,8 @@ Calculates the heritability (on an entry-mean basis) of a trait given a fitted m
 Accepted classes for \code{object} are:
 
 \itemize{
-  \item{\code{lm}}
-  \item{\code{aov}}
-  \item{\code{glm}}
-  \item{\code{lmer}}
-  \item{\code{mmer}}
+  \item{\code{lm} - CURRENTLY UNAVAILABLE}
+  \item{\code{lmerMod}}
 }
 }
 \examples{
@@ -51,32 +45,14 @@ gauch_soy1 <- gauch.soy \%>\%
   group_by(env) \%>\%
   filter(n_distinct(gen, rep) == 28)
 
+# Set the number of reps and number of environments
+n_r <- 4
+n_e <- 36
+
 # Fit a linear model using lm
-mod <- lm(yield ~ gen + env + gen:env, data = gauch_soy1)
+mod <- lmer(yield ~ (1|gen) + env + (1|gen:env), data = gauch_soy1)
 # Calculate heritability
-herit(object = mod, geno.term = "gen", env.term = "env", ge.term = "gen:env")
-
-# Fit a mixed-effects model with lmer
-mod1 <- lmer(yield ~ (1|gen) + env + (1|gen:env), data = gauch_soy1)
-# Calculate heritability
-herit(object = mod1, geno.term = "gen", env.term = "env", ge.term = "gen:env")
-
-# Exclude the GE term
-mod2 <- lm(yield ~ gen + env, data = gauch_soy1)
-herit(object = mod2, geno.term = "gen", env.term = "env")
-
-# A different dataset with only one rep
-data("cornelius.maize")
-mod3 <- lm(yield ~ gen + env, data = cornelius.maize)
-herit(object = mod3, geno.term = "gen", env.term = "env")
-
-# One environment and one rep
-cornelius_maize <- cornelius.maize \%>\%
-  filter(env == "E01")
-
-mod4 <- lm(yield ~ gen, data = cornelius_maize)
-herit(object = mod4, geno.term = "gen")
-
-# Note it errors because there are no residuals - cannot calculate heritability
+herit(object = mod, exp = "gen / (gen + (gen:env / n_e) + (Residual / n_r))",
+      n_r = n_r, n_e = n_e)
 
 }

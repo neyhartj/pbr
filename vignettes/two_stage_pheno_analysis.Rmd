@@ -1,0 +1,229 @@
+---
+title: "Two-Step Analysis of Multi-Environment Plant Breeding Data"
+author: "Jeff Neyhart"
+date: "`r Sys.Date()`"
+output: 
+  rmarkdown::html_vignette:
+    toc: true
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+bibliography: C:/Users/Jeff/Documents/Literature/library.bib
+---
+
+## Introduction
+
+Plant breeders often test breeding material (i.e. genotypes) in many environments. Ideally, these genotypes are tested in trials with some experimental design structure, for instance a randomized complete block design or an augmented design. 
+
+
+
+
+
+## Methods
+
+First load the necessary packages.
+
+```{r setup}
+library(tidyverse)
+library(stringr)
+library(pbr)
+library(regress)
+library(broom)
+
+```
+
+
+To compare the one-step versus two-step analyses, we will used some real data provided in the `agridat` package, and we will simulate data in other cases. For each of several designs, we will compare the best linear unbiased estimates (BLUEs) of the genotypes via one-step or two-step analysis. Additionally, we will calculate heritability via the two different methods.
+
+
+
+### Incomplete Block Design
+
+Use the `besag.met` data from the `agridat` package
+
+```{r icbd}
+besag_met <- tbl_df(besag.met)
+
+```
+
+#### One-Step Analysis
+
+We will perform the one-step analysis by fitting `gen` and `county` as fixed effects, and we will fit `county`, `rep` within `county` and `block` within `rep/county` as random. Written-out, the model looks like:
+
+$$
+y_{ijkl} = g_i + t_j + (gt)_{ij} + r_{k(j)} + b_{l(jk)} + \epsilon_{ijkl}
+$$
+
+```{r one.step.icbd.fixed}
+
+# Rescale data
+besag_met1 <- besag_met %>%
+  mutate(scale_center = mean(yield, na.rm = T),
+         scale_scale = sd(yield, na.rm = T),
+         yield = as.numeric(scale(yield))) %>%
+  filter(!is.na(yield)) %>%
+  droplevels()
+
+form <- yield ~ -1 + gen + county + (1|gen:county) + (1|rep:county) + (1|block:rep:county)
+
+fit <- lmer(formula = form, data = besag_met1, REML = TRUE)
+
+# Get the BLUEs of the genotypes
+one_step_blues <- tidy(fit) %>% 
+  filter(str_detect(term, "^gen")) %>%
+  mutate(term = str_replace_all(term, "gen", "")) %>%
+  select(gen = term, yield = estimate, std.error)
+
+
+```
+
+
+Now fit genotype as a random effect and calculate heritability
+
+```{r one.step.icbd.rand}
+
+form <- yield ~ (1|gen) + county + (1|gen:county) + (1|rep:county) + (1|block:rep:county)
+
+fit <- lmer(formula = form, data = besag_met1, REML = TRUE)
+
+# Tidy up
+var_comp <- as.data.frame(VarCorr(fit))
+mf <- model.frame(fit)
+
+n_e <- table(mf$gen, mf$county) %>%
+  ifelse(. > 1, 1, .) %>%
+  rowSums() %>%
+  harm_mean()
+
+n_r <- table(mf$gen, mf$county) %>%
+  rowSums() %>%
+  harm_mean()
+
+n_r <- 3
+
+varG <- subset(var_comp, grp == "gen", vcov, drop = TRUE)
+varGE <- subset(var_comp, grp == "gen:county", vcov, drop = TRUE)
+varR <- subset(var_comp, grp == "Residual", vcov, drop = TRUE)
+
+(H_os = varG / (varG + (varGE / n_e) + (varR / (n_e * n_r))))
+
+```
+  
+
+#### Two-Step Analysis
+
+The first step fits a model within each trial, and the second step, adjusted means are used across all trials.
+
+Written-out, the model for the first step is:
+$$
+y_{ikl} = g_i + r_k + b_{l(k)} + \epsilon_{ikl},
+$$
+
+and the model for the second step is:
+$$
+y_{ij} = g_i + t_j + (gt)_{ij} + \epsilon_{ij}.
+$$
+
+
+We will compare weighting the residuals by the square of the standard error of the genotype means calculated in the first step versus not weighting. To assess one-step versus two-step analysis, we will correlate the BLUEs of the genptypes obtained via the two analyses.
+
+
+
+```{r two.step.icbd}
+
+step_one_form <- yield ~ -1 + gen + (1|rep) + (1|block:rep)
+
+step_one_fit <- besag_met1 %>% 
+  group_by(county) %>%
+  do(fit = lmer(step_one_form, data = ., REML = TRUE))
+
+# Extract the BLUEs and the standard errors 
+step_one_blues <- step_one_fit %>%
+  mutate(BLUEs = list({ 
+    tidy(fit) %>% 
+    filter(str_detect(term, "^gen")) %>%
+    mutate(term = str_replace_all(term, "gen", "")) %>%
+    select(gen = term, yield = estimate, std.error) }))
+
+## Step two
+step_two_form <- yield ~ -1 + gen + county + (1|gen:county)
+
+# Force lmer
+model_control <- lmerControl(check.nobs.vs.nlev = "warning", check.nobs.vs.nRE = "warning")
+
+step_one_to_model <- step_one_blues %>% 
+  unnest(BLUEs)
+
+R <- step_one_to_model$std.error ^ 2
+
+
+step_two_fit_weighted <- lmer(step_two_form, data = step_one_to_model, REML = TRUE, 
+                     control = model_control, weights = R)
+
+two_step_blues_weighted <- tidy(step_two_fit_weighted) %>%
+  filter(str_detect(term, "^gen")) %>%
+  mutate(term = str_replace_all(term, "gen", "")) %>%
+  select(gen = term, yield = estimate, std.error)
+
+# Now do not use weighting
+step_two_fit_unweighted <- lmer(step_two_form, data = step_one_to_model, REML = TRUE, 
+                     control = model_control)
+
+two_step_blues_unweighted <- tidy(step_two_fit_unweighted) %>%
+  filter(str_detect(term, "^gen")) %>%
+  mutate(term = str_replace_all(term, "gen", "")) %>%
+  select(gen = term, yield = estimate, std.error)
+
+# Correlation
+list(one_step_blues, two_step_blues_weighted, two_step_blues_unweighted) %>% 
+  reduce(., full_join, by = "gen") %>%
+  select(one_step = yield, two_step_weighted = yield.x, two_step_unweighted = yield.y) %>%
+  cor()
+
+```
+
+Interestingly, the unweighted method gives a higher correlation. This is not entirely surprising, and was noted in @Mohring2009:
+
+> "The high correlations found with Method 8 [unweighted] indicate that differences in weights were small and even an unweighted analysis gave reasonable estimates." [@Mohring2009]
+
+
+Now refit the second step model with `gen` as a random effect and calculate heritability.
+
+```{r two.step.icbd.herit}
+
+## Step two
+step_two_form <- yield ~ (1|gen) + county + (1|gen:county)
+
+# Force lmer
+model_control <- lmerControl(check.nobs.vs.nlev = "warning", check.nobs.vs.nRE = "warning")
+
+step_two_fit_weighted <- lmer(step_two_form, data = step_one_to_model, REML = TRUE, 
+                     control = model_control)
+
+# Tidy up
+var_comp <- as.data.frame(VarCorr(step_two_fit_weighted))
+mf <- model.frame(step_two_fit_weighted)
+
+n_e <- table(mf$gen, mf$county) %>%
+  ifelse(. > 1, 1, .) %>%
+  rowSums() %>%
+  harm_mean()
+
+n_r <- table(mf$gen, mf$county) %>%
+  harm_mean()
+
+varG <- subset(var_comp, grp == "gen", vcov, drop = TRUE)
+varGE <- subset(var_comp, grp == "gen:county", vcov, drop = TRUE)
+varR <- subset(var_comp, grp == "Residual", vcov, drop = TRUE)
+
+(H_ts = varG / (varG + (varGE / n_e) + (varR / (n_e * n_r))))
+
+```
+
+
+
+
+## References
+
+
