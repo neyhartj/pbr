@@ -10,6 +10,26 @@
 #' the argument \code{exp = "geno / (geno + (Residual / r))"} was passed, you would
 #' also pass the argument \code{r = 2}.
 #'
+#' @details
+#' This function implements model-based bootstrapping to obtain the standard error
+#' and confidence interval around an estimate of the heritability. The function
+#' uses the original fitted model to simulate new observations using the same
+#' model parameters. The model is then re-fitted using the new observations,
+#' and the heritability is re-calculated. This is repeated \emph{n} times.
+#'
+#' @return
+#' A \code{data.frame} with the following values:
+#'
+#' \describe{
+#'   \item{heritability}{The estimate of the heritability using the original data.}
+#'   \item{se}{The standard error of the estimate, calculated as the standard deviation
+#'   among the bootstrap replicates.}
+#'   \item{bias}{The bias of the original heritability estimate, calculated as the difference
+#'   between the mean of the bootstrapped estimates and the original estimate.}
+#'   \item{ci_lower}{The lower limit of the confidence interval.}
+#'   \item{ci_upper}{The upper limit of the confidence interval.}
+#' }
+#'
 #' @importFrom purrr map
 #'
 #' @export
@@ -61,7 +81,7 @@ herit_boot <- function(object, exp, boot.reps = 1000, ...) {
 
 #' @rdname herit_boot
 #' @export
-herit_boot.lmerMod <- function(object, exp, boot.reps = 1000, ...) {
+herit_boot.lmerMod <- function(object, exp, boot.reps = 1000, alpha = 0.05, ...) {
 
   # Calculate heritability
   base_herit <- herit(object = object, exp = exp, ... = ...)
@@ -83,11 +103,19 @@ herit_boot.lmerMod <- function(object, exp, boot.reps = 1000, ...) {
   sim_herit <- sim_fits %>%
     map_dbl(herit, exp = exp, ... = ...)
 
-  # Caculate the standard error
+  # Calculate the standard error
   se <- sd(sim_herit)
 
+  # Calculate the bias
+  bias <- mean(sim_herit) - base_herit
+
+  # Calculate the confidence interval
+  ci_lower = (2 * base_herit) - quantile(sim_herit, 1 - (alpha / 2))
+  ci_upper = (2 * base_herit) - quantile(sim_herit, (alpha / 2))
+
   # Return the heritability and the standard error
-  data.frame(heritability = base_herit, se = se)
+  data.frame(heritability = base_herit, se = se, bias = bias, ci_lower = ci_lower,
+             ci_upper = ci_upper, row.names = NULL)
 
 } # Close the function
 
