@@ -5,7 +5,7 @@
 \alias{herit_boot.lmerMod}
 \title{Heritability confidence interval by bootstrap}
 \usage{
-herit_boot(object, exp, boot.reps = 1000, ...)
+herit_boot(object, exp, boot.reps = 1000, alpha = 0.05, ...)
 
 \method{herit_boot}{lmerMod}(object, exp, boot.reps = 1000, alpha = 0.05,
   ...)
@@ -18,12 +18,12 @@ herit_boot(object, exp, boot.reps = 1000, ...)
 
 \item{boot.reps}{The number of bootsrap replicates.}
 
+\item{alpha}{The significance level for the confidence interval.}
+
 \item{...}{Other arguments to pass. This is generally a list of other objects
 that are in \code{exp}, but may not be found in \code{object}. For instance, if
 the argument \code{exp = "geno / (geno + (Residual / r))"} was passed, you would
 also pass the argument \code{r = 2}.}
-
-\item{alpha}{The significance level for the confidence interval.}
 }
 \value{
 A \code{data.frame} with the following values:

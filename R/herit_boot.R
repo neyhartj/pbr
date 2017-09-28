@@ -34,7 +34,7 @@
 #'
 #' @export
 #'
-herit_boot <- function(object, exp, boot.reps = 1000, ...) {
+herit_boot <- function(object, exp, boot.reps = 1000, alpha = 0.05, ...) {
 
   UseMethod(generic = "herit_boot", object)
 
