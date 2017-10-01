@@ -1,5 +1,5 @@
 # This script is from the tidyverse package
-load <- c("ggplot2", "tidyr", "readr", "dplyr", "lme4", "agridat")
+load <- c("dplyr", "readr", "lme4", "agridat")
 
 # Function to run when the package is attached
 .onAttach <- function(...) {

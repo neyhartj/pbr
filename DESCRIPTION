@@ -8,23 +8,25 @@ Depends:
     R (>= 3.3.2)
 Imports:
     dplyr,
-    tidyr,
     readr,
-    ggplot2,
+    purrr,
+    stringr,
     qtl,
+    lme4,
     rrBLUP,
     BGLR,
     agricolae,
-    lsmeans,
-    lme4,
-    agridat,
-    PopVar,
-    sommer
+    agridat
 Suggests:
+    tidyr,
+    ggplot2,
     modelr,
     purrr,
     knitr,
-    rmarkdown
+    rmarkdown,
+    PopVar,
+    sommer,
+    lsmeans
 License: MIT + file LICENSE
 RoxygenNote: 6.0.1
 VignetteBuilder: knitr
