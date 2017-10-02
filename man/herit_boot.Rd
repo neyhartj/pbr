@@ -5,7 +5,7 @@
 \alias{herit_boot.lmerMod}
 \title{Heritability confidence interval by bootstrap}
 \usage{
-herit_boot(object, exp, boot.reps = 1000, alpha = 0.05, ...)
+herit_boot(object, exp, ms_exp, boot.reps = 1000, alpha = 0.05, ...)
 
 \method{herit_boot}{lmerMod}(object, exp, boot.reps = 1000, alpha = 0.05,
   ...)
@@ -47,4 +47,6 @@ and confidence interval around an estimate of the heritability. The function
 uses the original fitted model to simulate new observations using the same
 model parameters. The model is then re-fitted using the new observations,
 and the heritability is re-calculated. This is repeated \emph{n} times.
+
+See \code{\link[herit]{pbr}} for accepted classes for \code{herit_boot}.
 }

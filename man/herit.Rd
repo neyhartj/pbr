@@ -13,12 +13,19 @@ herit(object, exp, ...)
 \item{object}{A model object. See \emph{Details} for accepted classes.}
 
 \item{exp}{A quoted expression used to calculate the heritability. For instance,
-\code{"geno / (geno + (Residual / r))"}.}
+\code{"geno / (geno + (Residual / r))"}. Variables in the expression should be variance
+components derived from restricted maximum likelihood (REML) or from the mean squares
+from an ANOVA table.}
 
 \item{...}{Other arguments to pass. This is generally a list of other objects
 that are in \code{exp}, but may not be found in \code{object}. For instance, if
 the argument \code{exp = "geno / (geno + (Residual / r))"} was passed, you would
 also pass the argument \code{r = 2}.}
+
+\item{ms_exp}{A named list of expressions used to calculate the variance components.
+The names of the list should be names of the variance components used in the heritability
+expression (\code{exp}). Note the expected residual variance is equal to the observed
+mean squares for the residuals. See \emph{Examples} for examples.}
 }
 \description{
 Calculates the heritability (on an entry-mean basis) of a trait given a fitted model object
@@ -27,7 +34,7 @@ Calculates the heritability (on an entry-mean basis) of a trait given a fitted m
 Accepted classes for \code{object} are:
 
 \itemize{
-  \item{\code{lm} - CURRENTLY UNAVAILABLE}
+  \item{\code{lm}}
   \item{\code{lmerMod}}
 }
 }
@@ -46,9 +53,21 @@ n_r <- 4
 n_e <- 36
 
 # Fit a linear model using lm
-mod <- lmer(yield ~ (1|gen) + env + (1|gen:env), data = gauch_soy1)
+lm_mod <- lm(yield ~ gen + env + gen:env + rep \%in\% env, data = gauch_soy1)
+
+# Variance components from a fixed effects model are derived from the ANOVA table.
+# The function also required expressions to calculate the variance components
+ms_exp <- list("gen:env" = "(gen:env - Residuals) / n_r",
+               "gen" = "(gen - gen:env) / (n_r * n_e)")
+
+exp = "gen / (gen + (gen:env / n_e) + (Residuals / n_r))"
+
+herit(object = lm_mod, exp = exp, ms_exp = ms_exp, n_r = n_r, n_e = n_e)
+
+# Fit a linear model using lmer
+lmer_mod <- lmer(yield ~ (1|gen) + env + (1|gen:env) + (1|rep:env), data = gauch_soy1)
 # Calculate heritability
-herit(object = mod, exp = "gen / (gen + (gen:env / n_e) + (Residual / n_r))",
+herit(object = lmer_mod, exp = "gen / (gen + (gen:env / n_e) + (Residual / n_r))",
       n_r = n_r, n_e = n_e)
 
 }

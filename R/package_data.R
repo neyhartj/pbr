@@ -21,4 +21,14 @@
 #' Genotypic data from the two-row barley CAP
 #'
 #'
+"tr_cap_genos"
 
+#' Marker genetic map for the two-row barley CAP
+#'
+#'
+"tr_cap_genos_map"
+
+#' Phenotypic data for the two-row barley CAP
+#'
+#'
+"tr_cap_phenos"

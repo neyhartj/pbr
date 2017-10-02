@@ -17,6 +17,8 @@
 #' model parameters. The model is then re-fitted using the new observations,
 #' and the heritability is re-calculated. This is repeated \emph{n} times.
 #'
+#' See \code{\link[herit]{pbr}} for accepted classes for \code{herit_boot}.
+#'
 #' @return
 #' A \code{data.frame} with the following values:
 #'
@@ -31,60 +33,18 @@
 #' }
 #'
 #' @importFrom purrr map
+#' @importFrom lme4 bootMer
 #'
 #' @export
 #'
-herit_boot <- function(object, exp, boot.reps = 1000, alpha = 0.05, ...) {
+herit_boot <- function(object, exp, ms_exp, boot.reps = 1000, alpha = 0.05, ...) {
 
   UseMethod(generic = "herit_boot", object)
 
 }
 
 
-# herit_boot.lm <- function(object, geno.term, env.term = NULL, ge.term = NULL,
-#                           boot.reps = 1000, alpha = 0.95) {
-#
-#   # Grab the model frame
-#   object_mf <- model.frame(object)
-#
-#   # Grab the model formula
-#   object_form <- formula(object)
-#
-#   # Sample bootstrap replicates
-#   boot_df <- bootstrap(data = object_mf, n = boot.reps)
-#
-#   # Iterate over samples
-#   boot_herit <- map(boot_df$strap, ~ lm(object_form, data = .)) %>%
-#     map(herit, geno.term = geno.term, env.term = env.term, ge.term = ge.term)
-#
-#   # Convert to data.frame
-#   boot_herit_df <- boot_herit %>%
-#     lapply("[[", 2) %>%
-#     data.frame()
-#
-#   # Rename
-#   names(boot_herit_df) <- paste("rep", seq(ncol(boot_herit_df)), sep = "")
-#
-#   # Mutate and gather
-#   boot_herit_df1 <- boot_herit_df %>%
-#     mutate(Term = boot_herit[[1]]$Term) %>%
-#     gather(rep, estimate, -Term)
-#
-#   # Summarize and return
-#   boot_herit_df1 %>%
-#     group_by(Term) %>%
-#     summarize(mean = mean(estimate), ci_lower = quantile(estimate, 1 - alpha), ci_upper = quantile(estimate, alpha)) %>%
-#     as.data.frame()
-#
-# } # Close function
-
-
-#' @rdname herit_boot
-#' @export
-herit_boot.lmerMod <- function(object, exp, boot.reps = 1000, alpha = 0.05, ...) {
-
-  # Calculate heritability
-  base_herit <- herit(object = object, exp = exp, ... = ...)
+herit_boot.lm <- function(object, exp, ms_exp, boot.reps = 1000, alpha = 0.95, ...) {
 
   # Extract other arguments
   other_args <- list(...)
@@ -92,26 +52,70 @@ herit_boot.lmerMod <- function(object, exp, boot.reps = 1000, alpha = 0.05, ...)
   # Extract the model frame
   mf <- model.frame(object)
 
-  # Simulate responses
+  # Create a function to calculate heritability from the model object
+  herit_use <- function(x) herit(object = x, exp = exp, ms_exp = ms_exp, other_args)
+
+  ## Perform bootstrapping
+  # First simulate from the model
   sim_response <- simulate(object = object, nsim = boot.reps)
 
-  # Map over the simulations and refit the model
-  sim_fits <- sim_response %>%
-    map(refit, object = object)
+  # Update the model frame with the data
+  mf_update <- lapply(X = sim_response, FUN = function(x) {
+    mf[,1] <- x
+    return(mf)
+  })
 
-  # Calculate heritability
-  sim_herit <- sim_fits %>%
-    map_dbl(herit, exp = exp, ... = ...)
+  # Update and fit the models with the new data
+  sim_refit <- lapply(X = mf_update, function(x) update(object, data = x))
+
+  # Calculate heritability on the original data
+  base_herit <- herit_use(object)
+
+  # Calculate the heritability for each new model object
+  boot_herit <- map_dbl(sim_refit, herit_use)
 
   # Calculate the standard error
-  se <- sd(sim_herit)
-
+  se <- sd(boot_herit)
   # Calculate the bias
-  bias <- mean(sim_herit) - base_herit
+  bias <- mean(boot_herit) - base_herit
 
   # Calculate the confidence interval
-  ci_lower = (2 * base_herit) - quantile(sim_herit, 1 - (alpha / 2))
-  ci_upper = (2 * base_herit) - quantile(sim_herit, (alpha / 2))
+  ci_lower = (2 * base_herit) - quantile(boot_herit, 1 - (alpha / 2))
+  ci_upper = (2 * base_herit) - quantile(boot_herit, (alpha / 2))
+
+  # Return the heritability and the standard error
+  data.frame(heritability = base_herit, se = se, bias = bias, ci_lower = ci_lower,
+             ci_upper = ci_upper, row.names = NULL)
+
+} # Close function
+
+
+#' @rdname herit_boot
+#' @export
+herit_boot.lmerMod <- function(object, exp, boot.reps = 1000, alpha = 0.05, ...) {
+
+  # Extract other arguments
+  other_args <- list(...)
+
+  # Extract the model frame
+  mf <- model.frame(object)
+
+  # Create a function to calculate heritability from the model object
+  herit_use <- function(x) herit(object = x, exp = exp, other_args)
+
+  # Perform bootstrapping
+  boot_herit <- bootMer(x = object, FUN = herit_use, nsim = boot.reps, type = "parametric")
+
+  # Extract the original fit
+  base_herit <- boot_herit$t0
+  # Calculate the standard error
+  se <- sd(boot_herit$t)
+  # Calculate the bias
+  bias <- mean(boot_herit$t) - base_herit
+
+  # Calculate the confidence interval
+  ci_lower = (2 * base_herit) - quantile(boot_herit$t, 1 - (alpha / 2))
+  ci_upper = (2 * base_herit) - quantile(boot_herit$t, (alpha / 2))
 
   # Return the heritability and the standard error
   data.frame(heritability = base_herit, se = se, bias = bias, ci_lower = ci_lower,
