@@ -235,6 +235,9 @@ score_calc <- function(M_test, P3D, Hinv, y, X, X_fixed, Z, K, qtlxe = TRUE) {
   # Apply function over the column of the M matrix (i.e. markers)
   apply(X = M_test, MARGIN = 2, FUN = function(snp) {
 
+    # Number of observations
+    n <- length(y)
+
     ## First calculate the main effect of the marker
     # Model matrix of SNP main effect
     X_snp_main <- Z %*% snp
