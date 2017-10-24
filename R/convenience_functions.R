@@ -19,3 +19,5 @@ harm_mean <- function(x) {
   inv_x[is.infinite(inv_x)] <- NA
   1 / mean(inv_x, na.rm = TRUE)
 }
+
+

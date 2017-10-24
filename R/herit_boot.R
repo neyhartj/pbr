@@ -44,7 +44,7 @@ herit_boot <- function(object, exp, ms_exp, boot.reps = 1000, alpha = 0.05, ...)
 }
 
 
-herit_boot.lm <- function(object, exp, ms_exp, boot.reps = 1000, alpha = 0.95, ...) {
+herit_boot.lm <- function(object, exp, ms_exp, boot.reps = 1000, alpha = 0.05, ...) {
 
   # Extract other arguments
   other_args <- list(...)
@@ -101,7 +101,7 @@ herit_boot.lmerMod <- function(object, exp, boot.reps = 1000, alpha = 0.05, ...)
   mf <- model.frame(object)
 
   # Create a function to calculate heritability from the model object
-  herit_use <- function(x) herit(object = x, exp = exp, other_args)
+  herit_use <- function(x) herit(object = x, exp = exp, ... = other_args)
 
   # Perform bootstrapping
   boot_herit <- bootMer(x = object, FUN = herit_use, nsim = boot.reps, type = "parametric")

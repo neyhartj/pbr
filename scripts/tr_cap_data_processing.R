@@ -8,18 +8,19 @@ library(purrrlyr)
 library(lme4)
 
 # Read in line information
-line_data <- read_csv("C:/Users/Jeff/Google Drive/Barley Lab/Projects/Genomic Selection/Genotypic Data/BOPA Markers/2R_CAP/2R_CAP_line_details.csv")
+line_data <- read_csv("C:/Users/Jeff/Google Drive/Barley Lab/Projects/Genomics/BOPA/2R_CAP/2R_CAP_line_details.csv")
 
 
 # Read in geno information
-genos <- read_tsv("C:/Users/Jeff/Google Drive/Barley Lab/Projects/Genomic Selection/Genotypic Data/BOPA Markers/2R_CAP/2R_CAP_T3_download/genotype.hmp.txt")
+genos <- read_tsv("C:/Users/Jeff/Google Drive/Barley Lab/Projects/Genomics/BOPA/2R_CAP/2R_CAP_T3_download/genotype.hmp.txt")
 
 # Parse the line names
 line_name <- genos %>%
-  select(-`rs#`:-QCcode) %>% names()
+  select(-rs:-pos) %>%
+  names()
 
 ## Phenotype data
-phenos <- read_tsv(file = "data/download_NDZK/download_NDZK/traits.txt")
+phenos <- read_tsv(file = "other_data/2R_cap_trait_data/traits.txt")
 
 # Parse the line names and trait names
 phenos1 <- phenos %>%
@@ -30,6 +31,28 @@ phenos1 <- phenos %>%
 phenos2 <- phenos1 %>%
   filter(line %in% line_name)
 
+## Find the proportion of missingness per trial/trait
+obs_per_trial <- phenos2 %>%
+  gather(trait, value, -line, -trial) %>%
+  complete(line, trial, trait) %>%
+  group_by(trial, trait) %>%
+  summarize(prop_na = mean(is.na(value))) %>%
+  arrange(prop_na)
+
+# Pick the top 6 dryland environment-traits
+selected_trials <- obs_per_trial %>%
+  filter(str_detect(trial, "Dry"),
+         trait %in% c("grainyield", "plantheight")) %>%
+  group_by(trait) %>%
+  top_n(n = -6, prop_na)
+
+# Filter for dryland CAP trials
+tr_cap_phenos_met <- selected_trials %>%
+  select(trial, trait) %>%
+  left_join(., gather(phenos2, trait, value, -line, -trial)) %>%
+  ungroup()
+
+
 # Calculate means per line per trait
 tr_cap_phenos <- phenos2 %>%
   group_by(line) %>%
@@ -37,34 +60,18 @@ tr_cap_phenos <- phenos2 %>%
 
 # Extract the genotypes for those lines with phenotype data
 genos_anno <- genos %>%
-  select(marker = `rs#`, alleles:pos, which(names(.) %in% tr_cap_phenos$line))
-
-genos1 <- genos_anno%>%
-  apply(X = ., MARGIN = 1, FUN = function(i) {
-
-    alleles <- i[2] %>%
-      str_split(pattern = "/") %>%
-      unlist()
-
-    convert = c("-1" = str_c(alleles[1], alleles[1]),
-                "0" = str_c(alleles[1], alleles[2]),
-                "1" = str_c(alleles[2], alleles[2])) %>%
-      structure(as.character(names(.)), names = .)
-
-    calls <- unlist(i[-c(1:4)])
-
-    str_replace_all(calls, convert) %>% str_replace_all("NN", "NA") %>% parse_number()
-
-  })
+  select(marker = rs, alleles:pos, which(names(.) %in% tr_cap_phenos$line))
 
 
 # Merge the calls with the metadata
-tr_cap_genos <- bind_cols(select(genos_anno, marker:pos), as.data.frame(t(genos1))) %>%
-  structure(names = names(genos_anno)) %>%
+tr_cap_genos <- genos_anno %>%
   # Filter unmapped
-  filter(chrom != "UNK")
+  filter(chrom != "UNK") %>%
+  mutate_at(vars(-marker:-pos), as.numeric)
 
 # Convert to a matrix
+genos1 <- t(subset(tr_cap_genos, select = -1:-4))
+
 tr_cap_genos_mat <- genos1 %>%
   structure(dimnames = list(names(tr_cap_genos)[-c(1:4)], tr_cap_genos$marker))
 
@@ -96,19 +103,26 @@ to_keep <- rowMeans(is.na(mat4)) <= 0.10
 mat5 <- mat4[to_keep,]
 
 ## Extract marker metadata
-tr_cap_genos_map <- tr_cap_genos %>%
-  select(1:4) %>%
+tr_cap_genos_hmp <- tr_cap_genos %>%
   filter(marker %in% colnames(mat5)) %>%
+  select(marker:pos, row.names(mat5)) %>%
   mutate(pos = pos / 1000)
 
-tr_cap_genos <- mat5[,colnames(mat5) %in% tr_cap_genos_map$marker]
+tr_cap_genos_mat <- mat5[,colnames(mat5) %in% tr_cap_genos_hmp$marker]
+
+
 
 
 # Edit the phenos
 tr_cap_phenos <- tr_cap_phenos %>%
-  filter(line %in% row.names(tr_cap_genos))
+  filter(line %in% row.names(tr_cap_genos_mat))
 
+tr_cap_phenos_met <- tr_cap_phenos_met %>%
+  filter(line %in% row.names(tr_cap_genos_mat))
 
+## Save
+devtools::use_data(tr_cap_genos_hmp, tr_cap_genos_mat, tr_cap_phenos, tr_cap_phenos_met,
+                   overwrite = T)
 
 
 
