@@ -2,7 +2,7 @@
 % Please edit documentation in R/gwas_e.R
 \name{gwas_e}
 \alias{gwas_e}
-\title{Genomewide Association Analysis for Multiple Enviroments}
+\title{Multi-Environment Genomewide Association Analysis}
 \usage{
 gwas_e(pheno, geno, fixed = NULL, K = NULL, n.PC = 0, P3D = TRUE,
   n.core = 1, impute.method = c("mean", "EM", "pass"))
@@ -48,5 +48,6 @@ pheno <- tr_cap_phenos_met
 \dontrun{}
 # Perform association
 gwas_out <- gwas_e(pheno = pheno, geno = geno, fixed = "trial")
+gwas1 <- GWAS()
 
 }

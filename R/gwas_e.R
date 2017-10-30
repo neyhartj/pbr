@@ -1,4 +1,4 @@
-#' Genomewide Association Analysis for Multiple Enviroments
+#' Multi-Environment Genomewide Association Analysis
 #'
 #' @description
 #' Performs a genomewide association analysis for the main effect of markers and
@@ -33,8 +33,12 @@
 #' \dontrun{}
 #' # Perform association
 #' gwas_out <- gwas_e(pheno = pheno, geno = geno, fixed = "trial")
+#' gwas1 <- GWAS()
 #'
 #' @importFrom rrBLUP A.mat
+#' @importFrom EMMREML emmreml
+#' @import purrr
+#' @import dplyr
 #'
 #' @export
 #'
@@ -112,19 +116,40 @@ gwas_e <- function(pheno, geno, fixed = NULL, K = NULL, n.PC = 0, P3D = TRUE,
   }
   # PCs for population structure
   if (n.PC > 0) {
-    eig.vec <- eigen(K)$vectors
+    eig_vec <- eigen(K)$vectors
   }
 
-  # Create a matrix to store the marker scores for each trait
-  marker_scores <- matrix(data = 0, nrow = m, ncol = n_trait * 2,
-                          dimnames = list(mar_names, NULL))
-  colnames(marker_scores) <- paste(rep(trait_names, each = 2), c("main", "qtlxe"), sep = "_")
+  # Create a list to store output of multiple traits
+  trait_scores <- vector("list", n_trait) %>%
+    setNames(trait_names)
 
 
   # Iterate over phenotypes
   for (i in seq_along(trait_names)) {
     # Notification
     print(paste("GWAS for trait:", trait_names[i]))
+
+    # Matrix for random effects
+    ## First formula for the random effects
+    rand_form <- as.formula(paste(trait_names[i], paste0("~ -1 +", rand_name)))
+    mf <- model.frame(rand_form, pheno, drop.unused.levels = TRUE, na.action = "na.omit")
+    Z0 <- model.matrix(rand_form, mf)
+
+    # Re-order the K matrix
+    K1 <- K[levels(mf$line), levels(mf$line)]
+
+    # Re-order the marker matrix
+    M1 <- M[levels(mf$line),]
+
+
+    # ## Random effect of GxE
+    # rand_form <- as.formula(paste(trait_names[i], paste0("~ -1 +", paste(rand_name, fixed, sep = ":"))))
+    # mf <- model.frame(rand_form, pheno, drop.unused.levels = TRUE, na.action = "na.omit")
+    # Z1 <- model.matrix(rand_form, mf)
+
+    # K Matrix of GxE
+    K_Z1 <- diag(ncol(Z1))
+
 
     # Formula for the response and fixed
     mf_form <- as.formula(paste(trait_names[i], paste0("~ ", fixed, "- 1", collapse = "+")))
@@ -147,23 +172,34 @@ gwas_e <- function(pheno, geno, fixed = NULL, K = NULL, n.PC = 0, P3D = TRUE,
 
     }
 
+    # If population structure should be corrected via PC, add those vectors to the X matrix
+    if (n.PC > 1) {
+      X_pc <- Z0 %*% eig_vec[,seq(n.PC), drop = FALSE]
+
+    } else {
+      X_pc <- NULL
+
+    }
+
     # Combine with the mean vector
-    X <- make_full(cbind(X_mu, X_fixed))
+    X <- make_full(cbind(X_mu, X_fixed, X_pc))
 
     # vector of response
     y <- model.response(mf)
     # Number of obs
     n <- length(y)
 
-    # Matrix for random effects
-    ## First formula for the random effects
-    rand_form <- as.formula(paste(trait_names[i], paste0("~ -1 +", rand_name)))
-    mf <- model.frame(rand_form, pheno, drop.unused.levels = TRUE, na.action = "na.omit")
-    Z <- model.matrix(rand_form, mf)
-
     # Solve
     if (P3D) {
-      Hinv <- mixed.solve(y, X = X, Z = Z, K = K, return.Hinv = TRUE)$Hinv
+
+      # Fit the mixed model
+      fit <- emmreml(y = y, X = X, Z = Z0, K = K1)
+      Hinv <- H_inv(Vu = fit$Vu, Ve = fit$Ve, n = n, Z = Z0, K = K1)
+
+      # fit <- emmremlMultiKernel(y = y, X = X, Zlist = list(Z0, Z1), Klist = list(K1, K_Z1))
+
+#       fit <- mixed.solve(y, X = X, Z = Z, K = K1, return.Hinv = TRUE)
+#       Hinv <- fit$Hinv
       print("Variance components estimated. Testing markers.")
 
     } else {
@@ -179,29 +215,36 @@ gwas_e <- function(pheno, geno, fixed = NULL, K = NULL, n.PC = 0, P3D = TRUE,
 
       # Use mclapply
       scores <- mclapply(X = mar_split, FUN = function(markers) {
-        score_calc(M_test = M[,markers, drop = FALSE], P3D = P3D, Hinv = Hinv,
-                   X = X, y = y, X_fixed = X_fixed, Z = Z, K = K, qtlxe = TRUE)
+        score_calc(M_test = M1[,markers, drop = FALSE], P3D = P3D, Hinv = Hinv,
+                   X = X, y = y, X_fixed = X_fixed, Z = Z0, K = K1, qtlxe = TRUE)
       }, mc.cores = n.core)
 
-      scores <- do.call("cbind", scores)
+      # Collapse the list
+      scores <- transpose(scores) %>%
+        map(bind_rows)
 
     } else {
-      scores <- score_calc(M_test = M, P3D = P3D, Hinv = Hinv, X = X, y = y,
-                           X_fixed = X_fixed, Z = Z, K = K, qtlxe = TRUE)
+      scores <- score_calc(M_test = M1, P3D = P3D, Hinv = Hinv, X = X, y = y,
+                           X_fixed = X_fixed, Z = Z0, K = K1, qtlxe = TRUE)
 
     }
 
     # Add the marker scores to the matrix
-    j <- (i * 2 - 1)
-    marker_scores[,c(j, j + 1)] <- scores
+    trait_scores[[trait_names[i]]] <- scores
 
   } # Close the trait loop
 
-  # Create a data.frame
-  out <- data.frame(snp_info, marker_scores)
-  class(out) <- c("gwas", class(out))
+  # Transpose the trait list
+  trait_scores <- trait_scores %>%
+    transpose() %>%
+    map(bind_rows) %>%
+    map(~mutate(., trait = rep(trait_names, each = nrow(.) / n_trait))) %>%
+    map(~ select(., trait, marker, names(.)))
 
-  return(out)
+  # Create a data.frame
+  class(trait_scores) <- c("gwas", class(trait_scores))
+
+  return(trait_scores)
 
 } # Close the function
 
@@ -227,75 +270,108 @@ gwas_e <- function(pheno, geno, fixed = NULL, K = NULL, n.PC = 0, P3D = TRUE,
 #' of each marker is tested using an F-test, while QTLxE interaction is tested using
 #' a Wald test.
 #'
-#' @importFrom rrBLUP mixed.solve
+#' @importFrom EMMREML emmreml
+#' @import dplyr
 #'
 #'
 score_calc <- function(M_test, P3D, Hinv, y, X, X_fixed, Z, K, qtlxe = TRUE) {
 
   # Apply function over the column of the M matrix (i.e. markers)
-  apply(X = M_test, MARGIN = 2, FUN = function(snp) {
+  scores <- apply(X = M_test, MARGIN = 2, FUN = function(snp) {
 
-    # Number of observations
+    # number of observations
     n <- length(y)
 
-    ## First calculate the main effect of the marker
-    # Model matrix of SNP main effect
-    X_snp_main <- Z %*% snp
-    X1 <- cbind(X, X_snp_main)
+    # Test only the main effect or fit main effect + GxE?
+    if (!qtlxe) {
 
-    ## Re-estimate variance components?
-    if (!P3D) {
-      H2inv <- mixed.solve(y = y, X = X1, Z = Z, K = K, return.Hinv = TRUE)$Hinv
+      ## First calculate the main effect of the marker
+      # Model matrix of SNP main effect
+      X_snp_main <- Z %*% snp
+      X1 <- cbind(X, X_snp_main)
 
-    } else {
-      H2inv <- Hinv
-
-    }
-
-    # W matrix and inverse
-    W <- crossprod(X1, H2inv %*% X1)
-    Winv <- try(solve(W), silent = TRUE)
-
-    # If the inverse is successful, calculate the p-value for that SNP using
-    # an F test
-    if (class(Winv) != "try-error") {
-      # Number of fixed terms
-      p <- ncol(X1)
-      # Location of marker fixed terms
-      p_mar <- p_mar <- seq(ncol(X) + 1, p)
-      # Other
-      v1 <- 1
-      v2 <- n - p
-
-      # Vector of fixed effects
-      beta <- Winv %*% crossprod(X1, H2inv %*% y)
-      # Residuals
-      resid <- y - X1 %*% beta
-      # Estimate of sum of squared residuals
-      s2 <- as.double(crossprod(resid, H2inv %*% resid))/v2
-      CovBeta <- s2 * Winv
-
-      # F-statistic for the marker main effect
-      Fstat <- beta[p_mar]^2 / diag(CovBeta)[p_mar]
-      # Quantiles for beta distribution
-      q <- v2/(v2 + v1 * Fstat)
-      main_effect_pvalue <- unname(pbeta(q, v2/2, v1/2))
-
-    } else {
-      main_effect_pvalue <- NA
-
-    }
-
-    if (qtlxe) {
-
-      ## Now calculate marker effects for each environment
-      # Model matrix of SNP x Environment
-      X_snp_qtle <- c(X_snp_main) * X_fixed
-      X1 <- cbind(X, X_snp_qtle)
+      ## First calculate the main effect of the marker
+      # Model matrix of SNP main effect
+      X_snp_main <- Z %*% snp
+      X1 <- cbind(X, X_snp_main)
 
       ## Re-estimate variance components?
       if (!P3D) {
-        H2inv <- mixed.solve(y = y, X = X1, Z = Z, K = K, return.Hinv = TRUE)$Hinv
+        # Fit the mixed model
+        fit <- emmreml(y = y, X = X1, Z = Z, K = K)
+        H2inv <- H_inv(Vu = fit$Vu, Ve = fit$Ve, n = n, Z = Z, K = K)
+
+      } else {
+        H2inv <- Hinv
+
+      }
+
+      # W matrix and inverse
+      W <- crossprod(X1, H2inv %*% X1)
+      Winv <- try(solve(W), silent = TRUE)
+
+      # If the inverse is successful, calculate the p-value for that SNP using
+      # an F test
+      if (class(Winv) != "try-error") {
+        # Number of fixed terms
+        p <- ncol(X1)
+        v2 <- n - p
+        # Location of marker fixed terms
+        p_mar <- seq(ncol(X) + 1, p)
+
+        # Vector of fixed effect coefficients
+        beta <- Winv %*% crossprod(X1, H2inv %*% y)
+        # Residuals
+        resid <- y - X1 %*% beta
+        # Estimate of sum of squared residuals
+        s2 <- as.double(crossprod(resid, H2inv %*% resid))/v2
+        # VCOV of fixed effect coefficients
+        CovBeta <- s2 * Winv
+
+        beta0 <- beta[p_mar,, drop = FALSE]
+        # The Wald-test statistic is the square of the coefficient divided by the variance of that coefficient
+        w0 <- beta0^2 / diag(CovBeta)[p_mar]
+        # Under the NULL of beta = 0, the w statistic is chi-square distributed with 1 df
+        p_main <- pchisq(q = w0, df = 1, lower.tail = FALSE)
+
+
+        colnames(beta0) <- "beta0_hat"
+
+        # Output data.frame
+        out_df <- data.frame(term = "main_effect", df = 1, W_statistic = w0, p_value = p_main,
+                             row.names = NULL, stringsAsFactors = FALSE)
+
+        # Output list
+        return(list(test = out_df, beta0_hat = beta0, beta1_hat = NA))
+
+
+      } else {
+
+        out_df <- data.frame(term = "main_effect", df = 1, W_statistic = NA, p_value = NA,
+                             row.names = NULL, stringsAsFactors = FALSE)
+
+        return(list(test = out_df, beta0_hat = NA, beta1_hat = NA))
+
+      }
+
+
+
+    } else {
+
+      ## Now calculate marker effects for each environment
+      # Model matrix of SNP main effect
+      X_snp_main <- Z %*% snp
+      # Model matrix of SNP x Environment
+      X_snp_qtle <- c(X_snp_main) * X_fixed
+
+      # Include main effect of SNP, then remove the last QTLxE term to keep model full rank
+      X1 <- cbind(X, X_snp_main, X_snp_qtle[,-ncol(X_snp_qtle)])
+
+      ## Re-estimate variance components?
+      if (!P3D) {
+        # Fit the mixed model
+        fit <- emmreml(y = y, X = X1, Z = Z, K = K)
+        H2inv <- H_inv(Vu = fit$Vu, Ve = fit$Ve, n = n, Z = Z, K = K)
 
       } else {
         H2inv <- Hinv
@@ -311,8 +387,11 @@ score_calc <- function(M_test, P3D, Hinv, y, X, X_fixed, Z, K, qtlxe = TRUE) {
       if (class(Winv) != "try-error") {
         # Number of fixed terms
         p <- ncol(X1)
-        # Location of marker fixed terms
-        p_mar <- p_mar <- seq(ncol(X) + 1, p)
+        v2 <- n - p
+        # Location of marker main effect term
+        p_mar <- ncol(X) + 1
+        # Location of marker x env terms
+        p_mar_qtlxe <- seq(ncol(X) + 2, p)
 
         # Vector of fixed effects
         beta <- Winv %*% crossprod(X1, H2inv %*% y)
@@ -322,29 +401,77 @@ score_calc <- function(M_test, P3D, Hinv, y, X, X_fixed, Z, K, qtlxe = TRUE) {
         s2 <- as.double(crossprod(resid, H2inv %*% resid))/v2
         CovBeta <- s2 * Winv
 
-        # L matrix
-        L <- diag(length(p_mar))
-        # Marker x E betas
-        mar_beta <- L %*% beta[p_mar]
-        mat <- qr.solve(L %*% CovBeta[p_mar, p_mar] %*% t(L))
+        ## Test main effect
+        beta0 <- beta[p_mar,, drop = FALSE]
+        w0 <- beta0^2 / diag(CovBeta)[p_mar]
+        # Under the NULL of beta = 0, the w statistic is chi-square distributed with 1 df
+        p_main <- pchisq(q = as.numeric(w0), df = 1, lower.tail = FALSE)
 
-        # Chi-square statistic
-        chisqustat <- t(mar_beta) %*% mat %*% mar_beta
-        # P- value
-        qtlxe_pvalue <- as.numeric(pchisq(q = chisqustat, df = length(p_mar), lower.tail = FALSE))
+
+        ## Test QTLxE effects
+        # L matrix
+        L <- diag(length(p_mar_qtlxe))
+        # L <- matrix(1, nrow = 1, ncol = length(p_mar_qtlxe))
+        # Marker x E betas
+        beta1 <- L %*% beta[p_mar_qtlxe]
+        mat <- qr.solve(L %*% CovBeta[p_mar_qtlxe, p_mar_qtlxe] %*% t(L))
+
+        # Wald statistic
+        w1 <- t(beta1) %*% mat %*% beta1
+        # Under the NULL of beta_1 = beta_2 = ... = beta_j = 0, the w statistic is chi-square distributed with j - 1 df
+        p_qtlxe <- pchisq(q = as.numeric(w1), df = length(p_mar_qtlxe), lower.tail = FALSE)
+
+
+
+        # Estimate of dropped environment
+        beta1 <- rbind(beta[p_mar_qtlxe,,drop = FALSE] + c(beta0), beta0)
+        # Add names to beta matrices
+        dimnames(beta1) <- list(colnames(X_fixed), "beta1_hat")
+        colnames(beta0) <- "beta0_hat"
+
+        # Output data.frame
+        out_df <- data.frame(term = c("main_effect", "qtl_x_env"),
+                             df = c(1, length(p_mar_qtlxe)), W_statistic = c(w0, w1),
+                             p_value = c(p_main, p_qtlxe), row.names = NULL, stringsAsFactors = FALSE)
+
+        out_list <- list(test = out_df, beta0_hat = beta0, beta1_hat = beta1)
 
       } else {
-        qtlxe_pvalue <- NA
+
+        out_df <- data.frame(term = c("main_effect", "qtl_x_env"),
+                             df = c(1, ncol(X1) - ncol(X) - 1), W_statistic = NA,
+                             p_value = NA, row.names = NULL, stringsAsFactors = FALSE)
+
+        return(list(test = out_df, beta0_hat = NA, beta1_hat = NA))
 
       }
 
-      # Return the main effect and qtlxe p-values
-      return(c(main_effect = main_effect_pvalue, qtlxe = qtlxe_pvalue))
+    } })
 
-    } else {
-      return(c(main_effect = main_effect_pvalue))
-    }
-  })
+  # Combine the data.frames
+  test_df <- bind_rows(lapply(scores, "[[", "test"))
+  test_df1 <- data.frame(marker = rep(names(scores), each = ifelse(qtlxe, 2, 1)),
+                         test_df, stringsAsFactors = FALSE)
+
+  # Extract main effects
+  beta0_hat_df <- sapply(scores, "[[", "beta0_hat") %>%
+    data.frame(marker = names(.), beta0_hat = ., row.names = NULL, stringsAsFactors = FALSE)
+
+  if (qtlxe) {
+
+    # Extract QTLxE effects
+    beta1_hat_df <- lapply(scores, "[[", "beta1_hat") %>%
+      do.call("cbind", .) %>% t() %>%
+      data.frame(marker = names(scores), ., row.names = NULL, stringsAsFactors = FALSE) %>%
+      setNames(c("marker", colnames(X_fixed)))
+
+  } else {
+    beta1_hat_df <- NULL
+
+  }
+
+  # Output list
+  return(list(sig_test = test_df1, beta0_hat = beta0_hat_df, beta1_hat = beta1_hat_df))
 
 } # Close the function
 
@@ -358,6 +485,8 @@ score_calc <- function(M_test, P3D, Hinv, y, X, X_fixed, Z, K, qtlxe = TRUE) {
 #' @importFrom tidyr gather
 #' @importFrom dplyr mutate group_by ungroup
 #' @import ggplot2
+#'
+#' @export
 #'
 plot.gwas <- function(x, fdr.level = 0.05) {
 
@@ -385,3 +514,21 @@ plot.gwas <- function(x, fdr.level = 0.05) {
   print(g)
 
 } # Close the function
+
+
+#' Calculate the inverse of the H matrix
+#'
+#' @param Vu Estimated variance of random effects
+#' @param Ve Estimated variance of residuals
+#' @param n Number of observations
+#' @param Z Random effects incidence matrix
+#' @param K Covariance matrix for random effects
+#'
+H_inv <- function(Vu, Ve, n, Z, K) {
+
+  H <- (Z %*% K %*% t(Z)) + ((Ve / Vu) * diag(n))
+  solve(H)
+
+} # Close the function
+
+
