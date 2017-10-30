@@ -146,9 +146,8 @@ gwas_e <- function(pheno, geno, fixed = NULL, K = NULL, n.PC = 0, P3D = TRUE,
     # rand_form <- as.formula(paste(trait_names[i], paste0("~ -1 +", paste(rand_name, fixed, sep = ":"))))
     # mf <- model.frame(rand_form, pheno, drop.unused.levels = TRUE, na.action = "na.omit")
     # Z1 <- model.matrix(rand_form, mf)
-
-    # K Matrix of GxE
-    K_Z1 <- diag(ncol(Z1))
+    # # K Matrix of GxE
+    # K_Z1 <- diag(ncol(Z1))
 
 
     # Formula for the response and fixed
