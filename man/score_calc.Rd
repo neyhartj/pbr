@@ -4,7 +4,8 @@
 \alias{score_calc}
 \title{Calculate marker scores in association study}
 \usage{
-score_calc(M_test, P3D, Hinv, y, X, X_fixed, Z, K, qtlxe = TRUE)
+score_calc(M_test, P3D, Hinv, y, X, X_fixed, Z0, K0, Z1 = NULL, K1 = NULL,
+  qtlxe = TRUE)
 }
 \arguments{
 \item{M_test}{Marker genotype matrix}
@@ -19,9 +20,13 @@ score_calc(M_test, P3D, Hinv, y, X, X_fixed, Z, K, qtlxe = TRUE)
 
 \item{X_fixed}{Incidence matrix of environment fixed effects (but not including intercept)}
 
-\item{Z}{Incidence matrix of random effects (i.e. genotypes)}
+\item{Z0}{Incidence matrix of random effects (i.e. genotypes)}
 
-\item{K}{The covariance matrix of random effects}
+\item{K0}{The covariance matrix of random effects}
+
+\item{Z1}{Incidence matrix of gxe random effects}
+
+\item{K1}{The covariance matrix of gxe random effects}
 
 \item{qtlxe}{Logical - should QTLxE effects be tested?}
 }

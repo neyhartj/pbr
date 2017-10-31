@@ -1,16 +1,23 @@
-#' Multi-Environment Genomewide Association Analysis
+#' Multi-Environment Genomewide Association Analysis Through Linear Mixed-Models
 #'
 #' @description
-#' Performs a genomewide association analysis for the main effect of markers and
-#' their interaction with the environment. Most arguments are taken from the
-#' \code{\link[GWAS]{rrBLUP}} function.
+#' Performs a genomewide association analysis for the main effect of QTL and
+#' their interaction with the environment using a linear mixed model. Most arguments
+#' are taken from the \code{\link[GWAS]{rrBLUP}} function.
 #'
 #' @param pheno A data.frame of phenotypic data.
 #' @param geno A data.frame of marker names, positions, and genotypes.
-#' @param fixed A character vector of fixed effects.
-#' @param K The covariance matrix of random effects (i.e. genotypes).
+#' @param env.col A character indicating the column name containing the factor of
+#' environments.
+#' @param K_g The covariance matrix of random genotype effects (i.e. effect of
+#' background markers). If \code{NULL}, it is determined from the additive relationship
+#' matrix of the \code{geno} input.
+#' @param K_ge The covariance matrix of the random genotype-environment interaction
+#' effects (i.e. effect of background markers x environment). If \code{NULL}, it
+#' is determined from the kronecker product of the \code{K_g} matrix and the estimated
+#' genetic correlation beteeen environments.
 #' @param n.PC The number of principal components from singular value decomposition
-#' of the \code{K} matrix to use to correct for population structure.
+#' of the \code{K_g} matrix to use to correct for population structure.
 #' @param P3D Logical. Population parameters previous determined.
 #' @param n.core The number of cores to use when calculating marker scores.
 #' @param impute.method The method by which to impute the marker genotypes.
@@ -36,14 +43,15 @@
 #' gwas1 <- GWAS()
 #'
 #' @importFrom rrBLUP A.mat
-#' @importFrom EMMREML emmreml
+#' @importFrom sommer mmer
 #' @import purrr
 #' @import dplyr
+#' @import tidyr
 #'
 #' @export
 #'
-gwas_e <- function(pheno, geno, fixed = NULL, K = NULL, n.PC = 0, P3D = TRUE,
-                   n.core = 1, impute.method = c("mean", "EM", "pass")) {
+gwas_e <- function(pheno, geno, env.col = NULL, K_g = NULL, K_ge = NULL, n.PC = 0,
+                   P3D = TRUE, n.core = 1, impute.method = c("mean", "EM", "pass")) {
 
   ## ERROR
   pheno <- as.data.frame(pheno)
@@ -56,26 +64,25 @@ gwas_e <- function(pheno, geno, fixed = NULL, K = NULL, n.PC = 0, P3D = TRUE,
   n_pheno <- ncol(pheno) - 1
 
   # Make sure the fixed effect columns are in the phenotype df
-  if (!all(fixed %in% colnames(pheno)))
+  if (!all(env.col %in% colnames(pheno)))
     stop("The column name in 'fixed' is not in the 'pheno' data.frame.")
 
   # Number of fixed effects
-  n_fixed <- length(fixed)
   # If n_fixed > 1, reject
-  if (n_fixed > 1)
-    stop("The number of fixed effects should only be 1 (environment).")
+  if (length(env.col) > 1)
+    stop("The length of 'env.col' should only be 1 (environment).")
 
   # Name of the random effects column
   rand_name <- colnames(pheno)[1]
 
   # Convert the random effects (lines) and fixed effects (environment) to a factor
   pheno[,rand_name] <- as.factor(pheno[,rand_name, drop = TRUE])
-  pheno[,fixed] <- as.factor(pheno[,fixed, drop = TRUE])
+  pheno[,env.col] <- as.factor(pheno[,env.col, drop = TRUE])
 
   # Number of traits
-  n_trait <- n_pheno - n_fixed
+  n_trait <- n_pheno - 1
   # Find the names of the traits
-  trait_names <- setdiff(x = tail(colnames(pheno), n = -1), y = fixed)
+  trait_names <- setdiff(x = tail(colnames(pheno), n = -1), y = env.col)
 
   # Make sure all phenotyped lines are genotyped
   geno_names <- levels(pheno[,rand_name])
@@ -110,10 +117,38 @@ gwas_e <- function(pheno, geno, fixed = NULL, K = NULL, n.PC = 0, P3D = TRUE,
   # Marker names
   mar_names <- colnames(M)
 
-  ## K covariance matrix
-  if (is.null(K)) {
-    K <- geno_impute$A
+  ## K_g covariance matrix
+  n_geno <- nrow(M)
+  if (is.null(K_g)) {
+    K_g <- geno_impute$A
+
+  } else {
+    # Else must be a matrix of dimensions n x n
+    stopifnot(all(nrow(K_g) == n_geno, ncol(K_g) == n_geno))
+
   }
+
+  ## K_ge covariance matrix
+  ## Number of environments
+  n_env <- length(levels(pheno[,env.col]))
+  if (is.null(K_ge)) {
+    # If null, calculate correlation among environments for each trait
+    env_rho <- trait_names %>%
+      map(function(tr) subset(pheno, select = c(rand_name, env.col, tr)) %>%
+      spread(env.col, tr) %>%
+      subset(select = -1) %>%
+      cor(use = "pairwise.complete.obs")) %>%
+      setNames(trait_names)
+
+    # Compute the kronecker product of K_g and env_rho
+    K_ge <- map(env_rho, ~kronecker(., K_g, make.dimnames = TRUE))
+
+  } else {
+    # Else must be a matrix of dimensions nl x nl
+    stopifnot(all(map_lgl(K_ge, ~all(nrow(.) == n_geno * n_env, ncol(.) == n_geno * n_env))))
+
+  }
+
   # PCs for population structure
   if (n.PC > 0) {
     eig_vec <- eigen(K)$vectors
@@ -136,22 +171,23 @@ gwas_e <- function(pheno, geno, fixed = NULL, K = NULL, n.PC = 0, P3D = TRUE,
     Z0 <- model.matrix(rand_form, mf)
 
     # Re-order the K matrix
-    K1 <- K[levels(mf$line), levels(mf$line)]
+    K_g1 <- K_g[levels(mf$line), levels(mf$line)]
 
     # Re-order the marker matrix
     M1 <- M[levels(mf$line),]
 
 
-    # ## Random effect of GxE
-    # rand_form <- as.formula(paste(trait_names[i], paste0("~ -1 +", paste(rand_name, fixed, sep = ":"))))
-    # mf <- model.frame(rand_form, pheno, drop.unused.levels = TRUE, na.action = "na.omit")
-    # Z1 <- model.matrix(rand_form, mf)
-    # # K Matrix of GxE
-    # K_Z1 <- diag(ncol(Z1))
+    ## Random effect of GxE
+    rand_form <- as.formula(paste(trait_names[i], paste0("~ -1 +", paste(rand_name, env.col, sep = ":"))))
+    mf <- model.frame(rand_form, pheno, drop.unused.levels = FALSE, na.action = "na.omit")
+    Z1 <- model.matrix(rand_form, mf)
+
+    # K Matrix of GxE
+    K_ge1 <- K_ge[[trait_names[i]]]
 
 
     # Formula for the response and fixed
-    mf_form <- as.formula(paste(trait_names[i], paste0("~ ", fixed, "- 1", collapse = "+")))
+    mf_form <- as.formula(paste(trait_names[i], paste0("~ ", env.col, "- 1", collapse = "+")))
 
     # Create the model frame
     # Drop NAs and unused factor levels
@@ -162,7 +198,7 @@ gwas_e <- function(pheno, geno, fixed = NULL, K = NULL, n.PC = 0, P3D = TRUE,
     X_mu <- model.matrix(~ 1, mf)
 
     # If n_fixed is greater than 0, only create a mean vector
-    if (n_fixed > 0) {
+    if (n_env > 0) {
       X_fixed <- model.matrix(mf_form, mf)
 
     } else {
@@ -192,8 +228,17 @@ gwas_e <- function(pheno, geno, fixed = NULL, K = NULL, n.PC = 0, P3D = TRUE,
     if (P3D) {
 
       # Fit the mixed model
-      fit <- emmreml(y = y, X = X, Z = Z0, K = K1)
-      Hinv <- H_inv(Vu = fit$Vu, Ve = fit$Ve, n = n, Z = Z0, K = K1)
+      # Need to use 'capture.output' to avoid stupid messages
+      cap <- capture.output(
+        fit <- (mmer(Y = y, X = X, Z = list(g = list(Z = Z0, K = K_g1), ge = list(Z = Z1, K = K_ge1)),
+                  silent = TRUE, che = FALSE, draw = FALSE, complete = FALSE)) )
+
+      # Extract the inverse of the phenotypic variance matrix
+      Hinv <- as.matrix(fit$V.inv)
+
+
+      # fit <- emmreml(y = y, X = X, Z = Z0, K = K1)
+      # Hinv <- H_inv(Vu = fit$Vu, Ve = fit$Ve, n = n, Z = Z0, K = K1)
 
       # fit <- emmremlMultiKernel(y = y, X = X, Zlist = list(Z0, Z1), Klist = list(K1, K_Z1))
 
@@ -214,8 +259,9 @@ gwas_e <- function(pheno, geno, fixed = NULL, K = NULL, n.PC = 0, P3D = TRUE,
 
       # Use mclapply
       scores <- mclapply(X = mar_split, FUN = function(markers) {
-        score_calc(M_test = M1[,markers, drop = FALSE], P3D = P3D, Hinv = Hinv,
-                   X = X, y = y, X_fixed = X_fixed, Z = Z0, K = K1, qtlxe = TRUE)
+        score_calc(M_test = M1[,markers, drop = FALSE], P3D = P3D, Hinv = Hinv, X = X, y = y,
+                   X_fixed = X_fixed, Z0 = Z0, K0 = K_g1, Z1 = Z1,
+                   K1 = K_ge1, qtlxe = TRUE)
       }, mc.cores = n.core)
 
       # Collapse the list
@@ -224,7 +270,8 @@ gwas_e <- function(pheno, geno, fixed = NULL, K = NULL, n.PC = 0, P3D = TRUE,
 
     } else {
       scores <- score_calc(M_test = M1, P3D = P3D, Hinv = Hinv, X = X, y = y,
-                           X_fixed = X_fixed, Z = Z0, K = K1, qtlxe = TRUE)
+                           X_fixed = X_fixed, Z0 = Z0, K0 = K_g1, Z1 = Z1,
+                           K1 = K_ge1, qtlxe = TRUE)
 
     }
 
@@ -260,8 +307,10 @@ gwas_e <- function(pheno, geno, fixed = NULL, K = NULL, n.PC = 0, P3D = TRUE,
 #' @param y Vector of response values
 #' @param X Incidence matrix of fixed effects (must be full-rank)
 #' @param X_fixed Incidence matrix of environment fixed effects (but not including intercept)
-#' @param Z Incidence matrix of random effects (i.e. genotypes)
-#' @param K The covariance matrix of random effects
+#' @param Z0 Incidence matrix of random effects (i.e. genotypes)
+#' @param K0 The covariance matrix of random effects
+#' @param Z1 Incidence matrix of gxe random effects
+#' @param K1 The covariance matrix of gxe random effects
 #' @param qtlxe Logical - should QTLxE effects be tested?
 #'
 #' @details
@@ -269,11 +318,13 @@ gwas_e <- function(pheno, geno, fixed = NULL, K = NULL, n.PC = 0, P3D = TRUE,
 #' of each marker is tested using an F-test, while QTLxE interaction is tested using
 #' a Wald test.
 #'
-#' @importFrom EMMREML emmreml
+#' @importFrom sommer mmer
+#' @importFrom rrBLUP mixed.solve
 #' @import dplyr
 #'
 #'
-score_calc <- function(M_test, P3D, Hinv, y, X, X_fixed, Z, K, qtlxe = TRUE) {
+score_calc <- function(M_test, P3D, Hinv, y, X, X_fixed, Z0, K0, Z1 = NULL,
+                       K1 = NULL, qtlxe = TRUE) {
 
   # Apply function over the column of the M matrix (i.e. markers)
   scores <- apply(X = M_test, MARGIN = 2, FUN = function(snp) {
@@ -359,7 +410,7 @@ score_calc <- function(M_test, P3D, Hinv, y, X, X_fixed, Z, K, qtlxe = TRUE) {
 
       ## Now calculate marker effects for each environment
       # Model matrix of SNP main effect
-      X_snp_main <- Z %*% snp
+      X_snp_main <- Z0 %*% snp
       # Model matrix of SNP x Environment
       X_snp_qtle <- c(X_snp_main) * X_fixed
 
@@ -368,9 +419,18 @@ score_calc <- function(M_test, P3D, Hinv, y, X, X_fixed, Z, K, qtlxe = TRUE) {
 
       ## Re-estimate variance components?
       if (!P3D) {
-        # Fit the mixed model
-        fit <- emmreml(y = y, X = X1, Z = Z, K = K)
-        H2inv <- H_inv(Vu = fit$Vu, Ve = fit$Ve, n = n, Z = Z, K = K)
+        if (all(is.null(Z1), is.null(K1))) {
+          fit <- mixed.solve(y = y, Z = Z0, K = K0, X = X, return.Hinv = TRUE)
+          H2inv <- fit$Hinv
+
+        } else {
+          # Fit the mixed model
+          fit <- mmer(Y = y, X = X, Z = list(g = list(Z = Z0, K = K0), ge = list(Z = Z1, K = K1)),
+                      silent = TRUE, che = FALSE)
+
+          # Extract the inverse of the phenotypic variance matrix
+          H2inv <- fit$V.inv
+        }
 
       } else {
         H2inv <- Hinv

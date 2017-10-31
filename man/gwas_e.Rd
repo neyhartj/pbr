@@ -4,20 +4,28 @@
 \alias{gwas_e}
 \title{Multi-Environment Genomewide Association Analysis}
 \usage{
-gwas_e(pheno, geno, fixed = NULL, K = NULL, n.PC = 0, P3D = TRUE,
-  n.core = 1, impute.method = c("mean", "EM", "pass"))
+gwas_e(pheno, geno, env.col = NULL, K_g = NULL, K_ge = NULL, n.PC = 0,
+  P3D = TRUE, n.core = 1, impute.method = c("mean", "EM", "pass"))
 }
 \arguments{
 \item{pheno}{A data.frame of phenotypic data.}
 
 \item{geno}{A data.frame of marker names, positions, and genotypes.}
 
-\item{fixed}{A character vector of fixed effects.}
+\item{env.col}{A character indicating the column name containing the factor of
+environments.}
 
-\item{K}{The covariance matrix of random effects (i.e. genotypes).}
+\item{K_g}{The covariance matrix of random genotype effects (i.e. effect of
+background markers). If \code{NULL}, it is determined from the additive relationship
+matrix of the \code{geno} input.}
+
+\item{K_ge}{The covariance matrix of the random genotype-environment interaction
+effects (i.e. effect of background markers x environment). If \code{NULL}, it
+is determined from the kronecker product of the \code{K_g} matrix and the estimated
+genetic correlation beteeen environments.}
 
 \item{n.PC}{The number of principal components from singular value decomposition
-of the \code{K} matrix to use to correct for population structure.}
+of the \code{K_g} matrix to use to correct for population structure.}
 
 \item{P3D}{Logical. Population parameters previous determined.}
 
