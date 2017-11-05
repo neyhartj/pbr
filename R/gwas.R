@@ -168,12 +168,19 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
   # Marker names
   mar_names <- colnames(M)
 
+  # Re-order the marker matrix
+  M1 <- M[geno_names,]
+
 
   if (model %in% c("K", "Q", "QK")) {
 
     ## Create covariance matrices - only if the specified model is given
     # Extract the whole matrix from the imputed markers
     K_all <- geno_impute$A
+
+    # Reorder the K matrices
+    K0 <- list(K_all[geno_names, geno_names])
+
 
   } else if (model %in% c("G", "QG")) {
 
@@ -191,6 +198,9 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
     K_chr <- mar_names_chr %>%
       map(~M[,.]) %>%
       map(~A.mat(., min.MAF = 0, max.missing = 1, shrink = FALSE))
+
+    K0_chr <- K_chr %>%
+      map(~.[geno_names, geno_names])
 
   }
 
@@ -229,14 +239,6 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
     rand_form <- as.formula(paste(trait_names[i], paste0("~ -1 +", rand_name)))
     mf <- model.frame(rand_form, pheno, drop.unused.levels = FALSE, na.action = "na.omit")
     Z0 <- model.matrix(rand_form, mf)
-
-    # Reorder the K matrices
-    K0 <- list(K_all[geno_names, geno_names])
-    K0_chr <- K_chr %>%
-      map(~.[geno_names, geno_names])
-
-    # Re-order the marker matrix
-    M1 <- M[geno_names,]
 
     ## Fixed effect model matrices
     # Formula for the response and fixed
