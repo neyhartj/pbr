@@ -102,6 +102,9 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
   pheno <- as.data.frame(pheno)
   geno <- as.data.frame(geno)
 
+  # Rename the first three columns of the 'geno' input
+  colnames(geno)[1:3] <- c("marker", "chrom", "pos")
+
   # n.PC cannot be less than 0
   stopifnot(n.PC >= 0)
 
