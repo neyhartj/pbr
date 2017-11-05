@@ -2,7 +2,7 @@
 % Please edit documentation in R/gwas_e.R
 \name{gwas_e}
 \alias{gwas_e}
-\title{Multi-Environment Genomewide Association Analysis}
+\title{Multi-Environment Genomewide Association Analysis Through Linear Mixed-Models}
 \usage{
 gwas_e(pheno, geno, env.col = NULL, K_g = NULL, K_ge = NULL, n.PC = 0,
   P3D = TRUE, n.core = 1, impute.method = c("mean", "EM", "pass"))
@@ -37,9 +37,9 @@ of the \code{K_g} matrix to use to correct for population structure.}
 An object of class \code{gwas}, with marker scores for each trait.
 }
 \description{
-Performs a genomewide association analysis for the main effect of markers and
-their interaction with the environment. Most arguments are taken from the
-\code{\link[GWAS]{rrBLUP}} function.
+Performs a genomewide association analysis for the main effect of QTL and
+their interaction with the environment using a linear mixed model. Most arguments
+are taken from the \code{\link[GWAS]{rrBLUP}} function.
 }
 \examples{
 

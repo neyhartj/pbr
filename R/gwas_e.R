@@ -323,7 +323,7 @@ gwas_e <- function(pheno, geno, env.col = NULL, K_g = NULL, K_ge = NULL, n.PC = 
 #' @import dplyr
 #'
 #'
-score_calc <- function(M_test, P3D, Hinv, y, X, X_fixed, Z0, K0, Z1 = NULL,
+score_calc_qtlxe <- function(M_test, P3D, Hinv, y, X, X_fixed, Z0, K0, Z1 = NULL,
                        K1 = NULL, qtlxe = TRUE) {
 
   # Apply function over the column of the M matrix (i.e. markers)
@@ -531,62 +531,6 @@ score_calc <- function(M_test, P3D, Hinv, y, X, X_fixed, Z0, K0, Z1 = NULL,
 
   # Output list
   return(list(sig_test = test_df1, beta0_hat = beta0_hat_df, beta1_hat = beta1_hat_df))
-
-} # Close the function
-
-
-
-#' Plot the output from GWAS
-#'
-#' @param x An object of class \code{gwas}.
-#' @param fdr.level The false discovery rate level.
-#'
-#' @importFrom tidyr gather
-#' @importFrom dplyr mutate group_by ungroup
-#' @import ggplot2
-#'
-#' @export
-#'
-plot.gwas <- function(x, fdr.level = 0.05) {
-
-  ## Tidy up and adjust the p-values
-  gwas_tidy <- gather(x, trait, p_value, -1:-3) %>%
-    group_by(trait) %>%
-    mutate(p_adj = p.adjust(p = p_value, method = "fdr"),
-           neg_log_p_adj = -log10(p_adj),
-           neg_log_fdr = -log10(fdr.level)) %>%
-    ungroup()
-
-  # Rename the first 3 columns
-  colnames(gwas_tidy)[1:3] <- c("marker", "chrom", "pos")
-
-  # Plot
-  g <- gwas_tidy %>%
-    ggplot(aes(x = pos, y = neg_log_p_adj, col = chrom)) +
-    geom_point() +
-    geom_hline(aes(yintercept = neg_log_fdr)) +
-    facet_grid(trait ~ chrom, switch = "x") +
-    ylab("-log10(p)") +
-    xlab("Position") +
-    scale_color_discrete(guide = FALSE)
-
-  print(g)
-
-} # Close the function
-
-
-#' Calculate the inverse of the H matrix
-#'
-#' @param Vu Estimated variance of random effects
-#' @param Ve Estimated variance of residuals
-#' @param n Number of observations
-#' @param Z Random effects incidence matrix
-#' @param K Covariance matrix for random effects
-#'
-H_inv <- function(Vu, Ve, n, Z, K) {
-
-  H <- (Z %*% K %*% t(Z)) + ((Ve / Vu) * diag(n))
-  solve(H)
 
 } # Close the function
 
