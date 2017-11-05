@@ -79,8 +79,26 @@ geno <- tr_cap_genos_hmp \%>\%
 pheno <- tr_cap_phenos_met
 
 \dontrun{}
-# Perform association using the naive association method
+# Perform association using the simple model versus the Q+K model
 gwas_simple_out <- gwas(pheno = pheno, geno = geno, fixed = ~ trial, model = "simple")
+gwas_QK_out <- gwas(pheno = pheno, geno = geno, fixed = ~ trial, model = "QK", n.PC = 2)
+
+# Compare with rrBLUP GWAS function for the Q+K model
+
+
+# Use a subset of the data to fit all models
+# Use the first 25 markers of the first two chromosomes
+geno <- geno \%>\%
+  filter(chrom \%in\% unique(chrom)[1:2]) \%>\%
+  group_by(chrom)
+
+# Use phenotypes from the first two trials
+pheno <- pheno \%>\%
+  filter(trial \%in\% unique(trial)[1:2])
+
+models <- c("simple", "K", "Q", "QK", "G", "QG")
+
+gwas_out <- map(models, ~gwas(pheno = pheno, geno = geno, fixed = ~trial, model = ., n.PC = 2))
 
 
 }

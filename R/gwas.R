@@ -64,8 +64,26 @@
 #' pheno <- tr_cap_phenos_met
 #'
 #' \dontrun{}
-#' # Perform association using the naive association method
+#' # Perform association using the simple model versus the Q+K model
 #' gwas_simple_out <- gwas(pheno = pheno, geno = geno, fixed = ~ trial, model = "simple")
+#' gwas_QK_out <- gwas(pheno = pheno, geno = geno, fixed = ~ trial, model = "QK", n.PC = 2)
+#'
+#' # Compare with rrBLUP GWAS function for the Q+K model
+#'
+#'
+#' # Use a subset of the data to fit all models
+#' # Use the first 25 markers of the first two chromosomes
+#' geno <- geno %>%
+#'   filter(chrom %in% unique(chrom)[1:2]) %>%
+#'   group_by(chrom)
+#'
+#' # Use phenotypes from the first two trials
+#' pheno <- pheno %>%
+#'   filter(trial %in% unique(trial)[1:2])
+#'
+#' models <- c("simple", "K", "Q", "QK", "G", "QG")
+#'
+#' gwas_out <- map(models, ~gwas(pheno = pheno, geno = geno, fixed = ~trial, model = ., n.PC = 2))
 #'
 #'
 #' @importFrom rrBLUP A.mat
@@ -73,6 +91,7 @@
 #' @import purrr
 #' @import dplyr
 #' @import tidyr
+#' @import stringr
 #'
 #' @export
 #'
@@ -82,6 +101,9 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
   ## ERROR
   pheno <- as.data.frame(pheno)
   geno <- as.data.frame(geno)
+
+  # n.PC cannot be less than 0
+  stopifnot(n.PC >= 0)
 
   # Make sure 'fixed' is a formula
   stopifnot(class(fixed) == "formula")
@@ -163,14 +185,22 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
   ## PCs for population structure
   # PCs for population structure
   if (n.PC > 0) {
-    # If the model is the QG model, model population structure per chromosome
-    if (str_detect(model, "G")) {
+    # If n.PC > 0, but the model is not Q, QK, or QK, do not use PCs
+    if (!str_detect(model, "Q")) {
+      warning("The specified model is not one of 'Q', 'QK', or 'QG'. No PCs will be used as covariates.")
+
+    } else if (model == "QG") {
+      # If the model is the QG model, model population structure per chromosome
       eig_vec_list <- map(K_chr, ~eigen(.)$vector)
 
     } else {
       eig_vec_list <- list(eigen(K_all)$vectors)
 
     }
+  } else {
+    # If n.PC is equal to 0, but the model contains 'Q', error out
+    if (model %in% c("Q", "QK", "QG")) stop("'n.PC' == 0, but the model is one of 'Q', 'QK', or 'QG'.")
+
   }
 
   # Create a list to store output of multiple traits
@@ -180,12 +210,12 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
   # Iterate over phenotypes
   for (i in seq_along(trait_names)) {
     # Notification
-    print(paste("GWAS for trait:", trait_names[i], " using model:", model))
+    cat(paste("GWAS for trait: ", trait_names[i], ", using model: ", model, "\n", sep = ""))
 
     # Matrix for random effects
     ## First formula for the random effects
     rand_form <- as.formula(paste(trait_names[i], paste0("~ -1 +", rand_name)))
-    mf <- model.frame(rand_form, pheno, drop.unused.levels = TRUE, na.action = "na.omit")
+    mf <- model.frame(rand_form, pheno, drop.unused.levels = FALSE, na.action = "na.omit")
     Z0 <- model.matrix(rand_form, mf)
 
     # Reorder the K matrices
@@ -214,13 +244,13 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
     }
 
     # If population structure should be corrected via PC, add those vectors to the X matrix
-    if (all(n.PC > 1)) {
+    if (n.PC > 1) {
       # If a G model, create n_chrom Q matrices
       if (model == "QG") {
-        Qchr <- map(eig_vec_list, ~ Zrand %*% .[,seq(n.PC), drop = FALSE])
+        Q_chr <- map(eig_vec_list, ~ Z0 %*% .[,seq(n.PC), drop = FALSE])
 
       } else if (model == "Q") {
-        Q <- Zrand %*% eig_vec[,seq(n.PC), drop = FALSE]
+        Q <- Z0 %*% eig_vec_list[[1]][,seq(n.PC), drop = FALSE]
 
       } else {
         Q <- NULL
@@ -233,7 +263,7 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
 
     # Combine the Q matrix to make the fixed effect matrix
     if (model == "QG") {
-      X_model <- map(Qchr, ~make_full(cbind(X_mu, X_fixed, .)))
+      X_model <- map(Q_chr, ~make_full(cbind(X_mu, X_fixed, .)))
 
     } else {
       # Combine with the mean vector
@@ -266,11 +296,11 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
       }
 
       fit <- pmap(list(X_model, K_model), ~emmreml(y = y, X = .x, Z = Z_model, K = .y))
-
       Hinv <- pmap(list(fit, K_model),
-                   ~H_inv(Vu = .x$Vu, Ve = .x$Ve, n = n, Z = Z_model, K = .y))
+                   ~H_inv(Vu = .x$Vu, Ve = .x$Ve, n = n, Z = Z_model, K = .y)) %>%
+        set_names(names(K_model))
 
-      print("Variance components estimated. Testing markers.")
+      cat("Variance components estimated. Testing markers.\n")
 
     } else {
       Hinv <- NULL
@@ -297,8 +327,8 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
 
     } else {
       scores <- score_calc(M_test = M1, snp_info = snp_info, P3D = P3D, Hinv = Hinv,
-                           X = X_model, y = y, Z0 = Z_model, K0 = K_model, Z1 = NULL,
-                           K1 = NULL, model = model, Z_rand = Z0)
+                           X = X_model, y = y, Z0 = Z_model, K0 = K_model, model = model,
+                           Z_rand = Z0)
 
     }
 

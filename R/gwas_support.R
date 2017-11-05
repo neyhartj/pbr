@@ -13,24 +13,19 @@
 #' @param Z0 Incidence matrix of random main effects (i.e. genotypes)
 #' @param K0 List of covariance matrices of random main effects. Must be of length
 #' 1 or the number of chromosomes.
-#' @param Z1 Incidence matrix of gxe random interaction effects.
-#' @param K1 List of covariance matrices of random interaction effects. Must be of length
-#' 1 or the number of chromosomes.
 #' @param X_fixed Incidence matrix of environment fixed effects (but not including intercept)
 #' @param Z_rand Incidence matrix of genotype random effects (but not including intercept)
 #'
 #' @details
 #' Calculate the p-value for each marker in an association study. The main effect
-#' of each marker and QTLxE interaction is tested using a Wald test.
+#' of each marker is tested using a Wald test.
 #'
-#' @importFrom sommer mmer
 #' @importFrom EMMREML emmreml
 #' @importFrom purrr map
 #' @import dplyr
 #'
 #'
-score_calc <- function(M_test, model, snp_info, P3D, Hinv, y, X, Z0, K0, Z1 = NULL,
-                       K1 = NULL, X_fixed, Z_rand) {
+score_calc <- function(M_test, model, snp_info, P3D, Hinv, y, X, Z0, K0, X_fixed, Z_rand) {
 
   # Create a list of markers by chromosome or just a list
   # of markers
@@ -40,9 +35,9 @@ score_calc <- function(M_test, model, snp_info, P3D, Hinv, y, X, Z0, K0, Z1 = NU
 
   # Subset from the X and K matrix those chromosomes in the mar_list, if possible
   if (model %in% c("G", "QG")) {
-    X_use <- X[names(mar_list)]
     K_use <- K0[names(mar_list)]
     Hinv_use <- Hinv[names(mar_list)]
+    X_use <- ifelse(model == "QG", X[names(mar_list)], X)
 
   } else {
     X_use <- X
@@ -53,6 +48,9 @@ score_calc <- function(M_test, model, snp_info, P3D, Hinv, y, X, Z0, K0, Z1 = NU
 
   Z_use <- Z0
 
+  # number of observations
+  n <- length(y)
+
   # Map over the list of markers and the X or K matrix
   scores <- pmap(list(mar_list, X_use, K_use, Hinv_use), .f = function(mar, x, k, h) {
 
@@ -62,9 +60,6 @@ score_calc <- function(M_test, model, snp_info, P3D, Hinv, y, X, Z0, K0, Z1 = NU
     # Apply function over the column of the M matrix (i.e. markers)
     apply(X = m, MARGIN = 2, FUN = function(snp) {
 
-      # number of observations
-      n <- length(y)
-
       ## First calculate the main effect of the marker
       # Model matrix of SNP main effect
       X_snp_main <- Z_rand %*% snp
@@ -72,10 +67,8 @@ score_calc <- function(M_test, model, snp_info, P3D, Hinv, y, X, Z0, K0, Z1 = NU
 
       ## Re-estimate variance components?
       if (!P3D) {
-        # Fit the model
-        # The stream should split between simple and Q - and other models
+        # Fit the model and get the inverse of the phenotypic vcov matrix
         fit <- emmreml(y = y, X = X_use1, Z = Z0, K = k)
-
         H2inv <- H_inv(Vu = fit$Vu, Ve = fit$Ve, n = n, Z = Z0, K = k)
 
       } else {
@@ -137,6 +130,89 @@ score_calc <- function(M_test, model, snp_info, P3D, Hinv, y, X, Z0, K0, Z1 = NU
     select(marker, term, df, estimate, names(.))
 
 } # CLose the function
+
+
+#' Plot the output of an association analysis
+#'
+#' @param x An object of class \code{gwas} or a list of such objects.
+#' @param fdr.level The false discovery rate cutoff for declaring adjusted p-values
+#' significant.
+#' @param type The type of plot to create. Can be \code{"manhattan"} or
+#' \code{"qq"}.
+#'
+#' @import dplyr
+#' @import ggplot2
+#'
+#' @export
+#'
+plot_gwas <- function(x, fdr.level = 0.05, type = c("manhattan", "qq")) {
+
+  ## Is x a list of lists or a list?
+  x_class <- class(x)
+  # If gwas, convert to list, or keep the same
+  if (x_class == "gwas") {
+    x1 <- list(x)
+  } else{
+    x1 <- x
+  }
+
+  # Match the plot type
+  type <- match.arg(type)
+
+  # Iterate over the list of gwas outputs
+  plot_data <- map_df(x1, ~mutate(.$scores, model = .$metadata$model))
+
+  # Extract the column names for chromosome and position
+  chrom_name <- colnames(plot_data)[2]
+  pos_name <- colnames(plot_data)[3]
+
+  # Adjust p-values using the qvalue function
+  plot_data_adj <- plot_data %>%
+    group_by(model, trait) %>%
+    mutate(q_value = qvalue(p_value)$qvalue,
+           neg_log_q = -log10(q_value),
+           neg_log_fdr = -log10(fdr.level)) %>%
+    ungroup()
+
+  # Extract p_values and estimate the expected p_value
+  p_values <- plot_data_adj %>%
+    select(model, trait, p_value) %>%
+    group_by(model, trait) %>%
+    arrange(p_value) %>%
+    mutate(exp_p_value = ppoints(n = n())) %>%
+    mutate_at(vars(contains("p")), ~-log10(.))
+
+
+  # Plot
+  if (type == "manhattan") {
+    g <- plot_data_adj %>%
+      ggplot(aes(x = eval(as.name(pos_name)), y = neg_log_q)) +
+      geom_point(aes(col = eval(as.name(chrom_name)))) +
+      geom_hline(aes(yintercept = neg_log_fdr), lty = 2, lwd = 1) +
+      facet_grid(trait + model ~ chrom, scales = "free", switch = "x") +
+      ylab("-log10(q)") +
+      xlab("Position") +
+      scale_color_discrete(guide = FALSE) +
+      theme_bw()
+
+  } else {
+
+    g <- p_values %>%
+      ggplot(aes(x = exp_p_value, y = p_value, col = model)) +
+      geom_point() +
+      geom_abline(intercept = 0, slope = 1, col = "black", lwd = 1) +
+      facet_wrap(~ trait, ncol = 2) +
+      ylab("Observed -log10(p)") +
+      xlab("Expected -log10(p)") +
+      theme_bw()
+
+  }
+
+  # Return the graph
+  invisible(print(g))
+
+} # CLose the function
+
 
 
 #' Calculate the inverse of the H matrix
