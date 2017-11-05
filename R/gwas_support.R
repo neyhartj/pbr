@@ -168,9 +168,10 @@ plot_gwas <- function(x, fdr.level = 0.05, type = c("manhattan", "qq")) {
 
   # Adjust p-values using the qvalue function
   plot_data_adj <- plot_data %>%
+    mutate_at(vars(chrom_name), as.factor) %>%
     group_by(model, trait) %>%
-    mutate(q_value = qvalue(p_value)$qvalue,
-           neg_log_q = -log10(q_value),
+    mutate(p_value_adj = p.adjust(p_value, "fdr"),
+           neg_log_p_adj = -log10(p_value_adj),
            neg_log_fdr = -log10(fdr.level)) %>%
     ungroup()
 
@@ -186,7 +187,7 @@ plot_gwas <- function(x, fdr.level = 0.05, type = c("manhattan", "qq")) {
   # Plot
   if (type == "manhattan") {
     g <- plot_data_adj %>%
-      ggplot(aes(x = eval(as.name(pos_name)), y = neg_log_q)) +
+      ggplot(aes(x = eval(as.name(pos_name)), y = neg_log_p_adj)) +
       geom_point(aes(col = eval(as.name(chrom_name)))) +
       geom_hline(aes(yintercept = neg_log_fdr), lty = 2, lwd = 1) +
       facet_grid(trait + model ~ chrom, scales = "free", switch = "x") +
