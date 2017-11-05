@@ -150,8 +150,8 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
     return(as.matrix(svd.X$u[, 1:r]))
   }
 
-  ## M genotype matrix
-  M <- t(subset(geno, select = -1:-3))
+  ## M genotype matrix - subset for the levels of genotypes in the pheno df
+  M <- t(subset(geno, select = which(names(geno) %in% geno_names)))
   dimnames(M) <- list(row.names(M), geno[, 1, drop = TRUE])
 
   # Impute markers
@@ -169,21 +169,30 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
   mar_names <- colnames(M)
 
 
-  ## Create covariance matrices - only if the specified model is given
-  # Extract the whole matrix from the imputed markers
-  K_all <- geno_impute$A
+  if (model %in% c("K", "Q", "QK")) {
 
-  ## Create relationship matrices for markers on each chromsome
-  # First get the markers names per chromosome, and then collect the marker names
-  # for all chromosomes except the ith chromosome
-  mar_names_chr <- snp_info %>%
-    split(.[,2]) %>%
-    map(~.[,1,drop = TRUE]) %>%
-    map(~setdiff(mar_names, .))
-  # Extract the genotypes for those markers and calculate relationship matrices
-  K_chr <- mar_names_chr %>%
-    map(~M[,.]) %>%
-    map(~A.mat(., min.MAF = 0, max.missing = 1, shrink = FALSE))
+    ## Create covariance matrices - only if the specified model is given
+    # Extract the whole matrix from the imputed markers
+    K_all <- geno_impute$A
+
+  } else if (model %in% c("G", "QG")) {
+
+    # If only one chromosome is present, error
+    stopifnot(n_distinct(snp_info$chrom) > 1)
+
+    ## Create relationship matrices for markers on each chromsome, if called
+    # First get the markers names per chromosome, and then collect the marker names
+    # for all chromosomes except the ith chromosome
+    mar_names_chr <- snp_info %>%
+      split(.$chrom) %>%
+      map(~.$marker) %>%
+      map(~setdiff(mar_names, .))
+    # Extract the genotypes for those markers and calculate relationship matrices
+    K_chr <- mar_names_chr %>%
+      map(~M[,.]) %>%
+      map(~A.mat(., min.MAF = 0, max.missing = 1, shrink = FALSE))
+
+  }
 
   ## PCs for population structure
   # PCs for population structure
