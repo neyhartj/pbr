@@ -319,9 +319,9 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
 
       # Use mclapply
       scores <- mclapply(X = mar_split, FUN = function(mar_df) {
-        score_calc(M_test = M1[,mar_df[,1,drop = TRUE]], snp_info = mar_df,
+        score_calc(M_test = M1[,mar_df$marker], snp_info = mar_df,
                    P3D = P3D, Hinv = Hinv, X = X_model, y = y, Z0 = Z_model,
-                   K0 = K_model, Z1 = NULL, K1 = NULL, model = model, Z_rand = Z0)
+                   K0 = K_model, model = model, Z_rand = Z0)
 
       }, mc.cores = n.core)
 
