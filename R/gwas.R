@@ -337,7 +337,7 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
       }, mc.cores = n.core)
 
       # Collapse the list
-      do.call("rbind", scores)
+      scores <- do.call("rbind", scores)
 
     } else {
       scores <- score_calc(M_test = M1, snp_info = snp_info, P3D = P3D, Hinv = Hinv,
@@ -350,8 +350,6 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
     trait_scores[[trait_names[i]]] <- scores
 
   } # Close the trait loop
-
-  return(trait_scores)
 
   # Edit the trait scores
   scores_df <- pmap(list(trait_scores, trait_names), ~mutate(.x, trait = .y)) %>%
