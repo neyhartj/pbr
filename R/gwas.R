@@ -352,9 +352,8 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
   } # Close the trait loop
 
   # Edit the trait scores
-  scores_df <- trait_scores %>%
+  scores_df <- pmap(list(trait_scores, trait_names), ~mutate(.x, trait = .y)) %>%
     bind_rows() %>%
-    mutate(trait = rep(trait_names, each = nrow(.) / n_trait)) %>%
     select(trait, marker, names(.)) %>%
     left_join(snp_info, ., by = "marker") %>%
     arrange(trait)
