@@ -337,7 +337,7 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
       }, mc.cores = n.core)
 
       # Collapse the list
-      scores <- bind_rows(scores)
+      do.call("rbind", scores)
 
     } else {
       scores <- score_calc(M_test = M1, snp_info = snp_info, P3D = P3D, Hinv = Hinv,
