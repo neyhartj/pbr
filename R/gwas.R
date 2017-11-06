@@ -336,8 +336,6 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
 
       }, mc.cores = n.core)
 
-      return(scores)
-
       # Collapse the list
       do.call("rbind", scores)
 
