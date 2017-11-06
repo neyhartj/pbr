@@ -55,7 +55,7 @@ score_calc <- function(M_test, model, snp_info, P3D, Hinv, y, X, Z0, K0, X_fixed
   scores <- pmap(list(mar_list, X_use, K_use, Hinv_use), .f = function(mar, x, k, h) {
 
     # Subset the marker matrix for those markers
-    m <- M_test[,mar]
+    m <- M_test[,mar,drop = FALSE]
 
     # Apply function over the column of the M matrix (i.e. markers)
     apply(X = m, MARGIN = 2, FUN = function(snp) {
