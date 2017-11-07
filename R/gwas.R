@@ -92,6 +92,7 @@
 #' @import dplyr
 #' @import tidyr
 #' @import stringr
+#' @import parallel
 #'
 #' @export
 #'
@@ -324,17 +325,55 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
     ## Calculate the scores per marker
     ## Parallelize if possible
     if (n.core > 1) {
+
+      # How many cores are there to use?
+      avail_cores <- detectCores()
+
+      # Split the marker data
       mar_split <- snp_info %>%
         mutate(core = sort(rep(seq(n.core), length.out = nrow(.)))) %>%
         split(.$core)
 
-      # Use mclapply
-      scores <- mclapply(X = mar_split, FUN = function(mar_df) {
-        score_calc(M_test = M1[,mar_df$marker, drop = FALSE], snp_info = mar_df,
-                   P3D = P3D, Hinv = Hinv, X = X_model, y = y, Z0 = Z_model,
-                   K0 = K_model, model = model, Z_rand = Z0)
+      stopifnot(n.core <= avail_cores)
 
-      }, mc.cores = n.core)
+      # Detect the operating system
+      if (str_detect(string = sessionInfo()$running, "Windows")) {
+
+        # Create the cluster
+        cluster <- makeCluster(n.core)
+        # Extract functions to send to the clusters
+        env_to_export <- list(as.list(loadNamespace("pbr")), as.list(loadNamespace("purrr")),
+                      as.list(loadNamespace("EMMREML")),
+                      list(M1 = M1, P3D = P3D, Hinv = Hinv, X_model = X_model,
+                      Z_model = Z_model, y = y, K_model = K_model, model = model,
+                      Z0 = Z0))
+        env_to_export <- unlist(env_to_export, recursive = FALSE)
+
+        # Export the functions and data
+        clusterExport(cl = cluster,
+                      varlist = c("M1", "P3D", "Hinv", "X_model", "y", "Z_model",
+                               "K_model", "model", "Z0", "H_inv", "score_calc",
+                               "pmap", "map"), envir = as.environment(env_to_export))
+
+              # Run the code
+        scores <- clusterApply(cl = cluster, x = mar_split, fun = function(mar_df) {
+          score_calc(M_test = M1[,mar_df$marker, drop = FALSE], snp_info = mar_df,
+                     P3D = P3D, Hinv = Hinv, X = X_model, y = y, Z0 = Z_model,
+                     K0 = K_model, model = model, Z_rand = Z0) })
+
+        # Shut down the cluster
+        stopCluster(cluster)
+
+      } else {
+        # Otherwise use regular parallel
+        scores <- mclapply(X = mar_split, FUN = function(mar_df) {
+          score_calc(M_test = M1[,mar_df$marker, drop = FALSE], snp_info = mar_df,
+                     P3D = P3D, Hinv = Hinv, X = X_model, y = y, Z0 = Z_model,
+                     K0 = K_model, model = model, Z_rand = Z0)
+
+        }, mc.cores = n.core)
+
+      }
 
       # Collapse the list
       scores <- do.call("rbind", scores)
