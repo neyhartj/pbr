@@ -364,26 +364,26 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
       } else {
         # Else look at the interaction models
         if (model %in% c("KE", "QKE")) {
-          Z_model <- Z0
+          Z_model <- `dimnames<-`(Z0, NULL)
           K_model <- K0
           Z1_model <- Z1
 
           # Interaction matrix
-          O_model <- map(K0, ~kronecker(X = E_mat, Y = ., make.dimnames = TRUE))
+          O_model <- map(K0, ~kronecker(X = E_mat, Y = .))
 
         } else {
-          Z_model <- Z0
+          Z_model <- `dimnames<-`(Z0, NULL)
           K_model <- K0_chr
           Z1_model <- Z1
 
           # Interaction matrix
-          O_model <- map(K0_chr, ~kronecker(X = E_mat, Y = ., make.dimnames = TRUE))
+          O_model <- map(K0_chr, ~kronecker(X = E_mat, Y = .))
 
         }
 
         fit <- pmap(list(X_model, K_model, O_model),
-                    ~mmer(Y = y, X = ..1, Z = list(g = list(Z = Z0, K =  ..2), ge = list(Z = Z1, K = ..3)), silent = TRUE))
-        Hinv <- map(fit, ~as.matrix(.$V.inv))
+                    ~mmer(Y = y, X = ..1, Z = list(g = list(Z = Z_model, K =  ..2), ge = list(Z = Z1, K = ..3)), silent = TRUE))
+        Hinv <- map(fit, ~as.matrix(.$V.inv)) %>% set_names(names(K_model))
 
 
       }

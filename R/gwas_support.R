@@ -343,6 +343,12 @@ plot_gwas <- function(x, fdr.level = 0.05, type = c("manhattan", "qq")) {
   chrom_name <- colnames(plot_data)[2]
   pos_name <- colnames(plot_data)[3]
 
+  # Number of chromosomes
+  n_chrom <- n_distinct(plot_data$chrom)
+  # Color palette for chromosomes
+  chrom_color <- rep(c("grey", "black"), length.out = n_chrom) %>%
+    set_names(unique(plot_data$chrom))
+
   # Adjust p-values using the qvalue function
   plot_data_adj <- plot_data %>%
     mutate_at(vars(chrom_name), as.factor) %>%
@@ -350,7 +356,11 @@ plot_gwas <- function(x, fdr.level = 0.05, type = c("manhattan", "qq")) {
     mutate(p_value_adj = p.adjust(p_value, "fdr"),
            neg_log_p_adj = -log10(p_value_adj),
            neg_log_fdr = -log10(fdr.level)) %>%
-    ungroup()
+    ungroup() %>%
+    # assign chromosome color
+    mutate(chrom_color = str_replace_all(chrom, chrom_color)) %>%
+    # Remove NAs
+    filter(!is.na(p_value))
 
   # Extract p_values and estimate the expected p_value
   p_values <- plot_data_adj %>%
@@ -364,13 +374,17 @@ plot_gwas <- function(x, fdr.level = 0.05, type = c("manhattan", "qq")) {
   # Plot
   if (type == "manhattan") {
     g <- plot_data_adj %>%
-      ggplot(aes(x = eval(as.name(pos_name)), y = neg_log_p_adj), ) +
-      geom_point(aes(col = term)) +
+      ggplot(aes(x = eval(as.name(pos_name)), y = neg_log_p_adj)) +
+      geom_point(col = plot_data_adj$chrom_color) +
       geom_hline(aes(yintercept = neg_log_fdr), lty = 2, lwd = 1) +
-      facet_grid(trait + model ~ chrom, scales = "free", switch = "x") +
-      ylab("-log10(q)") +
+      facet_grid(trait + model + term ~ chrom, scales = "free", switch = "x") +
+      ylab("-log10(p)") +
       xlab("Position") +
-      theme_bw()
+      theme_bw() +
+      theme(
+        panel.border = element_blank(),
+        panel.spacing.x = unit(0, units = "in")
+      )
 
   } else {
 
