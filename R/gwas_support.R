@@ -13,37 +13,65 @@
 #' @param Z0 Incidence matrix of random main effects (i.e. genotypes)
 #' @param K0 List of covariance matrices of random main effects. Must be of length
 #' 1 or the number of chromosomes.
+#' @param Z1 Incidence matrix of gxe random effects
+#' @param K1 List of covariance matrices of gxe random effects.  Must be of length
+#' 1 or the number of chromosomes.
 #' @param X_fixed Incidence matrix of environment fixed effects (but not including intercept)
-#' @param Z_rand Incidence matrix of genotype random effects (but not including intercept)
+
 #'
 #' @details
 #' Calculate the p-value for each marker in an association study. The main effect
-#' of each marker is tested using a Wald test.
+#' of each marker and the qxe effect is tested using a Wald test.
 #'
 #' @importFrom EMMREML emmreml
-#' @importFrom purrr map
+#' @importFrom sommer mmer
+#' @importFrom purrr map map_df
 #' @import dplyr
+#' @import stringr
 #'
 #'
-score_calc <- function(M_test, model, snp_info, P3D, Hinv, y, X, Z0, K0, X_fixed, Z_rand) {
+score_calc <- function(M_test, model, snp_info, P3D, Hinv, test_qxe = FALSE,
+                       y, X, Z0, K0, Z1 = NULL, K1 = NULL, X_fixed = NULL) {
 
   # Create a list of markers by chromosome or just a list
   # of markers
   mar_list <- snp_info %>%
-    split(.[,2]) %>%
-    map(1)
+    split(.$chrom) %>%
+    map("marker")
 
   # Subset from the X and K matrix those chromosomes in the mar_list, if possible
-  if (model %in% c("G", "QG")) {
-    K_use <- K0[names(mar_list)]
-    Hinv_use <- Hinv[names(mar_list)]
-    X_use <- ifelse(model == "QG", X[names(mar_list)], X)
+  # First split stream by whether the interaction term is tested
+  if (str_detect(model, "E")) {
+    # Then split by the presence of G
+    if (str_detect(model, "G")) {
+      K_use <- K0[names(mar_list)]
+      Hinv_use <- Hinv[names(mar_list)]
+      X_use <- ifelse(model == "QGE", X[names(mar_list)], X)
+      K1_use <- K1[names(mar_list)]
+
+    } else {
+      X_use <- X
+      K_use <- K0
+      Hinv_use <- Hinv
+      K1_use <- K1
+
+    }
+
+    Z1_use <- Z1
 
   } else {
-    X_use <- X
-    K_use <- K0
-    Hinv_use <- Hinv
+    # Then split by the presence of G
+    if (str_detect(model, "G")) {
+      K_use <- K0[names(mar_list)]
+      Hinv_use <- Hinv[names(mar_list)]
+      X_use <- ifelse(model == "QG", X[names(mar_list)], X)
 
+    } else {
+      X_use <- X
+      K_use <- K0
+      Hinv_use <- Hinv
+
+    }
   }
 
   Z_use <- Z0
@@ -51,83 +79,232 @@ score_calc <- function(M_test, model, snp_info, P3D, Hinv, y, X, Z0, K0, X_fixed
   # number of observations
   n <- length(y)
 
-  # Map over the list of markers and the X or K matrix
-  scores <- pmap(list(mar_list, X_use, K_use, Hinv_use), .f = function(mar, x, k, h) {
+  ## Test markers
+  # Split the stream by whether the interaction term is tested
+  if (!str_detect(model, "E")) {
 
-    # Subset the marker matrix for those markers
-    m <- M_test[,mar,drop = FALSE]
+    # Map over the list of markers and the X or K matrix
+    scores <- pmap(list(mar_list, X_use, K_use, Hinv_use), .f = function(mar, x, k, h) {
 
-    # Apply function over the column of the M matrix (i.e. markers)
-    apply(X = m, MARGIN = 2, FUN = function(snp) {
+      # Subset the marker matrix for those markers
+      m <- M_test[,mar,drop = FALSE]
+      # Designate the inverse phenotype vcov matrix
+      H2inv <- h
 
-      ## First calculate the main effect of the marker
+      ## Create an incidence matrix of SNP genotypes per phenotypic observation
       # Model matrix of SNP main effect
-      X_snp_main <- Z_rand %*% snp
-      X_use1 <- cbind(x, X_snp_main)
+      X_snp_main <- Z_use %*% m
 
-      ## Re-estimate variance components?
-      if (!P3D) {
-        # Fit the model and get the inverse of the phenotypic vcov matrix
-        fit <- emmreml(y = y, X = X_use1, Z = Z0, K = k)
-        H2inv <- H_inv(Vu = fit$Vu, Ve = fit$Ve, n = n, Z = Z0, K = k)
+      # Apply function over the column of the M matrix (i.e. markers)
+      apply(X = X_snp_main, MARGIN = 2, FUN = function(snp_main) {
 
-      } else {
-        H2inv <- h
+        ## First calculate the main effect of the marker
+        # Should QxE be tested?
+        if (!test_qxe) {
+          X_use1 <- cbind(x, snp_main)
 
-      }
+        } else {
+          # Model matrix of SNP x Environment
+          X_snp_qxe <- c(snp_main) * X_fixed
+          # Include main effect of SNP, then remove the last QTLxE term to keep model full rank
+          X_use1 <- cbind(x, snp_main, X_snp_qxe[,-ncol(X_snp_qxe)])
 
-      # W matrix and inverse
-      W <- crossprod(X_use1, H2inv %*% X_use1)
-      Winv <- try(solve(W), silent = TRUE)
+        }
 
-      # If the inverse is successful, calculate the p-value for that SNP using
-      # an F test
-      if (class(Winv) != "try-error") {
-        # Number of fixed terms
-        p <- ncol(X_use1)
-        v2 <- n - p
-        # Location of marker fixed terms
-        p_mar <- seq(ncol(x) + 1, p)
+        ## Re-estimate variance components?
+        if (!P3D) {
+          # Fit the model and get the inverse of the phenotypic vcov matrix
+          fit <- emmreml(y = y, X = X_use1, Z = Z0, K = k)
+          H2inv <- H_inv(Vu = fit$Vu, Ve = fit$Ve, n = n, Z = Z0, K = k)
 
-        # Vector of fixed effect coefficients
-        beta <- Winv %*% crossprod(X_use1, H2inv %*% y)
-        # Residuals
-        resid <- y - X_use1 %*% beta
-        # Estimate of sum of squared residuals
-        s2 <- as.double(crossprod(resid, H2inv %*% resid))/v2
-        # VCOV of fixed effect coefficients
-        CovBeta <- s2 * Winv
+        }
 
-        beta0 <- beta[p_mar,, drop = FALSE]
-        # The Wald-test statistic is the square of the coefficient divided by the variance of that coefficient
-        w0 <- beta0^2 / diag(CovBeta)[p_mar]
-        # Under the NULL of beta = 0, the w statistic is chi-square distributed with 1 df
-        p_main <- pchisq(q = w0, df = 1, lower.tail = FALSE)
+        # W matrix and inverse
+        W <- crossprod(X_use1, H2inv %*% X_use1)
+        Winv <- try(solve(W), silent = TRUE)
 
+        # If the inverse is successful, calculate the p-value for that SNP using
+        # an F test
+        if (class(Winv) != "try-error") {
+          # Vector of fixed effect coefficients
+          beta <- Winv %*% crossprod(X_use1, H2inv %*% y)
+          # Predictions (ignore random effects)
+          y_hat <- X_use1 %*% beta
+          # Residuals
+          resid <- y - y_hat
 
-        colnames(beta0) <- "beta0_hat"
+          # Number of fixed terms
+          p <- ncol(X_use1)
+          v2 <- n - p
+          # Estimate of sum of squared residuals
+          s2 <- as.numeric(crossprod(resid, H2inv %*% resid))/v2
+          # VCOV of fixed effect coefficients
+          CovBeta <- s2 * Winv
 
-        # Output data.frame
-        out_df <- data.frame(term = "main_effect", df = 1, W_statistic = w0, p_value = p_main,
-                             row.names = NULL, stringsAsFactors = FALSE)
+          # Location of marker effects
+          mar_p <- seq(ncol(x) + 1, p)
+          # Location of marker main effect terms
+          p_mar <- mar_p[1]
+          p_mar1 <- setdiff(mar_p, p_mar)
 
-        # Output list
-        return(list(test = out_df, beta0_hat = beta0, beta1_hat = NA))
+          # Main effect test
+          beta0 <- beta[p_mar,, drop = FALSE]
+          # The Wald-test statistic is the square of the coefficient divided by the variance of that coefficient
+          w0 <- beta0^2 / diag(CovBeta)[p_mar]
+          # Under the NULL of beta = 0, the w statistic is chi-square distributed with 1 df
+          p_main <- pchisq(q = w0, df = 1, lower.tail = FALSE)
 
-      } else {
+          ## Interaction test
+          if (length(p_mar1) != 0) {
+            # L matrix
+            L <- diag(length(p_mar1))
+            # L <- matrix(1, nrow = 1, ncol = length(p_mar_qtlxe))
+            # Marker x E betas
+            beta1 <- L %*% beta[p_mar1,, drop = FALSE]
+            mat <- qr.solve(L %*% CovBeta[p_mar1, p_mar1] %*% t(L))
 
-        out_df <- data.frame(term = "main_effect", df = 1, W_statistic = NA, p_value = NA,
-                             row.names = NULL, stringsAsFactors = FALSE)
+            # Wald statistic
+            w1 <- t(beta1) %*% mat %*% beta1
+            # Under the NULL of beta_1 = beta_2 = ... = beta_j = 0, the w statistic is chi-square distributed with j - 1 df
+            p_qxe <- pchisq(q = as.numeric(w1), df = length(p_mar1), lower.tail = FALSE)
 
-        return(list(test = out_df, beta0_hat = NA))
+          } else {
+            w1 <- p_qxe <- beta1 <- NA
 
-      } }) }) # Close the apply and pmap functions
+          }
+        } else {
+          w1 <- p_qxe <- p_main <- w0 <- beta1 <- beta0 <- NA
+          p_mar1 <- numeric()
 
+        }
+
+        # Output a list
+        list(score = data.frame(term = c("main_effect", "qxe"), df = c(1, length(p_mar1)),
+                                W_statistic = c(w0, w1), p_value = c(p_main, p_qxe)),
+             estimates = list(beta0 = beta0, beta1 = beta1))
+
+      }) }) # Close the apply and pmap functions
+
+  } else {
+
+    # Map over the list of markers and the X or K matrix
+    scores <- pmap(list(mar_list, X_use, K_use, Hinv_use, K1_use), .f = function(mar, x, k, h, k1) {
+
+      # Subset the marker matrix for those markers
+      m <- M_test[,mar,drop = FALSE]
+      # Designate the inverse phenotype vcov matrix
+      H2inv <- h
+
+      ## Create an incidence matrix of SNP genotypes per phenotypic observation
+      # Model matrix of SNP main effect
+      X_snp_main <- Z_use %*% m
+
+      # Apply function over the column of the M matrix (i.e. markers)
+      apply(X = X_snp_main, MARGIN = 2, FUN = function(snp_main) {
+
+        # Should QxE be tested?
+        if (!test_qxe) {
+          X_use1 <- cbind(x, snp_main)
+
+        } else {
+          # Model matrix of SNP x Environment
+          X_snp_qxe <- c(snp_main) * X_fixed
+          # Include main effect of SNP, then remove the last QTLxE term to keep model full rank
+          X_use1 <- cbind(x, snp_main, X_snp_qxe[,-ncol(X_snp_qxe)])
+
+        }
+
+        ## Re-estimate variance components?
+        if (!P3D) {
+          # Fit the model and get the inverse of the phenotypic vcov matrix
+          fit <- mmer(Y = y, X = X_use1, Z = list(g = list(Z = Z_use, K = k), ge = list(Z = Z1_use, K = k1)), silent = TRUE)
+          H2inv <- as.matrix(fit$V.inv)
+
+        }
+
+        # W matrix and inverse
+        W <- crossprod(X_use1, H2inv %*% X_use1)
+        Winv <- try(solve(W), silent = TRUE)
+
+        # If the inverse is successful, calculate the p-value for that SNP using
+        # an F test
+        if (class(Winv) != "try-error") {
+          # Vector of fixed effect coefficients
+          beta <- Winv %*% crossprod(X_use1, H2inv %*% y)
+          # Predictions (ignore random effects)
+          y_hat <- X_use1 %*% beta
+          # Residuals
+          resid <- y - y_hat
+
+          # Number of fixed terms
+          p <- ncol(X_use1)
+          v2 <- n - p
+          # Estimate of sum of squared residuals
+          s2 <- as.double(crossprod(resid, H2inv %*% resid))/v2
+          # VCOV of fixed effect coefficients
+          CovBeta <- s2 * Winv
+
+          # Location of marker effects
+          mar_p <- seq(ncol(x) + 1, p)
+          # Location of marker main effect terms
+          p_mar <- mar_p[1]
+          p_mar1 <- setdiff(mar_p, p_mar)
+
+          # Main effect test
+          beta0 <- beta[p_mar,, drop = FALSE]
+          # The Wald-test statistic is the square of the coefficient divided by the variance of that coefficient
+          w0 <- beta0^2 / diag(CovBeta)[p_mar]
+          # Under the NULL of beta = 0, the w statistic is chi-square distributed with 1 df
+          p_main <- pchisq(q = w0, df = 1, lower.tail = FALSE)
+
+          ## Interaction test
+          if (length(p_mar1) != 0) {
+            # L matrix
+            L <- diag(length(p_mar1))
+            # L <- matrix(1, nrow = 1, ncol = length(p_mar_qtlxe))
+            # Marker x E betas
+            beta1 <- L %*% beta[p_mar1,, drop = FALSE]
+            mat <- qr.solve(L %*% CovBeta[p_mar1, p_mar1] %*% t(L))
+
+            # Wald statistic
+            w1 <- t(beta1) %*% mat %*% beta1
+            # Under the NULL of beta_1 = beta_2 = ... = beta_j = 0, the w statistic is chi-square distributed with j - 1 df
+            p_qxe <- pchisq(q = as.numeric(w1), df = length(p_mar1), lower.tail = FALSE)
+
+          } else {
+            w1 <- p_qxe <- NA
+
+          }
+        } else {
+          w1 <- p_qxe <- p_main <- w0 <- beta1 <- beta0 <- NA
+          p_mar1 <- numeric()
+        }
+
+        # Output a list
+        list(score = data.frame(term = c("main_effect", "qxe"), df = c(1, length(p_mar1)),
+                                W_statistic = c(w0, w1), p_value = c(p_main, p_qxe)),
+             estimates = list(beta0 = beta0, beta1 = beta1))
+
+        }) }) # Close the apply and pmap functions
+
+  }
+
+  # Transpose the list
+  scores_transp <- map(scores, transpose)
 
   # Combine the data.frames and return
-  map_df(scores, ~mutate(map_df(., "test"), marker = names(.))) %>%
-    mutate(estimate = unlist(map(scores, ~map_dbl(., "beta0_hat")))) %>%
-    select(marker, term, df, estimate, names(.))
+  scores_df <- scores_transp %>%
+    map("score") %>%
+    map_df(~mutate(bind_rows(.), marker = rep(names(.), each = 2))) %>%
+    as_data_frame()
+
+  estimate_df <- scores_transp %>%
+    map_df(~as_data_frame(.$estimates) %>%
+             mutate(estimate = c("beta0", "beta1")) %>%
+             gather(marker, value, -estimate))
+
+  bind_cols(scores_df, estimate_df) %>%
+    select(marker, term, estimate = value, df, W_statistic, p_value)
 
 } # CLose the function
 
@@ -169,7 +346,7 @@ plot_gwas <- function(x, fdr.level = 0.05, type = c("manhattan", "qq")) {
   # Adjust p-values using the qvalue function
   plot_data_adj <- plot_data %>%
     mutate_at(vars(chrom_name), as.factor) %>%
-    group_by(model, trait) %>%
+    group_by(model, trait, term) %>%
     mutate(p_value_adj = p.adjust(p_value, "fdr"),
            neg_log_p_adj = -log10(p_value_adj),
            neg_log_fdr = -log10(fdr.level)) %>%
@@ -177,8 +354,8 @@ plot_gwas <- function(x, fdr.level = 0.05, type = c("manhattan", "qq")) {
 
   # Extract p_values and estimate the expected p_value
   p_values <- plot_data_adj %>%
-    select(model, trait, p_value) %>%
-    group_by(model, trait) %>%
+    select(model, trait, term, p_value) %>%
+    group_by(model, term, trait) %>%
     arrange(p_value) %>%
     mutate(exp_p_value = ppoints(n = n())) %>%
     mutate_at(vars(contains("p")), ~-log10(.))
@@ -187,13 +364,12 @@ plot_gwas <- function(x, fdr.level = 0.05, type = c("manhattan", "qq")) {
   # Plot
   if (type == "manhattan") {
     g <- plot_data_adj %>%
-      ggplot(aes(x = eval(as.name(pos_name)), y = neg_log_p_adj)) +
-      geom_point(aes(col = eval(as.name(chrom_name)))) +
+      ggplot(aes(x = eval(as.name(pos_name)), y = neg_log_p_adj), ) +
+      geom_point(aes(col = term)) +
       geom_hline(aes(yintercept = neg_log_fdr), lty = 2, lwd = 1) +
       facet_grid(trait + model ~ chrom, scales = "free", switch = "x") +
       ylab("-log10(q)") +
       xlab("Position") +
-      scale_color_discrete(guide = FALSE) +
       theme_bw()
 
   } else {
@@ -202,7 +378,7 @@ plot_gwas <- function(x, fdr.level = 0.05, type = c("manhattan", "qq")) {
       ggplot(aes(x = exp_p_value, y = p_value, col = model)) +
       geom_point() +
       geom_abline(intercept = 0, slope = 1, col = "black", lwd = 1) +
-      facet_wrap(~ trait, ncol = 2) +
+      facet_wrap(term ~ trait, ncol = 2) +
       ylab("Observed -log10(p)") +
       xlab("Expected -log10(p)") +
       theme_bw()

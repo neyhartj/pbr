@@ -5,8 +5,8 @@
 \title{Genomewide Assocation Analysis Through Linear Mixed-Models}
 \usage{
 gwas(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", "G",
-  "QG"), n.PC = 0, P3D = TRUE, n.core = 1, impute.method = c("mean",
-  "EM", "pass"))
+  "QG", "KE", "QKE", "GE", "QGE"), test.qxe = FALSE, n.PC = 0, P3D = TRUE,
+  n.core = 1, impute.method = c("mean", "EM", "pass"))
 }
 \arguments{
 \item{pheno}{A data.frame of phenotypic data.}
@@ -19,6 +19,8 @@ gwas(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", "G",
 \code{"K"}, \code{"Q"}, \code{"QK"}, \code{"G"}, \code{"QG"}, ... . See \emph{Details}
 for more information on these models.}
 
+\item{test.qxe}{Logical. Should the QxE interaction be tested simultaneously?}
+
 \item{n.PC}{The number of principal components from singular value decomposition
 of the \code{K} matrix to use to correct for population structure. If \code{0},
 no correction for population structure is performed.}
@@ -30,8 +32,6 @@ no correction for population structure is performed.}
 \item{impute.method}{The method by which to impute the marker genotypes.}
 }
 \value{
-An object of class \code{gwas}, with marker scores for each trait.
-
 An object of class \code{gwas}, with marker scores for each trait.
 }
 \description{
@@ -66,6 +66,28 @@ A brief description of model types follows:
   Model: \eqn{y = X\beta + Zu + Qv + S\alpha + e}, \cr where \eqn{u ~ N(0, K\sigma^2_G)} and K
   is the relationship matrix obtained using markers on all chromosomes excluding
   the one on which the putative QTL resides.}
+  \item{KE}{Tests for marker effect while correcting for the background polygenic
+  effect x environment interaction. Does correct for population structure. \cr
+  Model: \eqn{y = X\beta + Zi + S\alpha + e}, \cr where \eqn{i ~ N(0, O\sigma^2_GE)} and O
+  is the Kronecker product of the genomic relationship matrix (K) and the genetic correlation
+  matrix across environments (E).}
+  \item{QKE}{Tests for marker effect while correcting for the background polygenic
+  effect x environment interaction and for population structure. \cr
+  Model: \eqn{y = X\beta + Zi + Qv + S\alpha + e}, \cr where \eqn{i ~ N(0, O\sigma^2_GE)} and O
+  is the Kronecker product of the genomic relationship matrix (K) and the genetic correlation
+  matrix across environments (E).}
+  \item{GE}{Tests for marker effect while correcting for the background polygenic
+  effect x environment interaction. Does not correct for population structure. \cr
+  Model: \eqn{y = X\beta + Zi + S\alpha + e}, \cr where \eqn{i ~ N(0, O_c\sigma^2_GE)} and O_c
+  is the Kronecker product of the genomic relationship matrix created using all markers
+  on chromosomes other than the marker being tested (K_c) and the genetic correlation
+  matrix across environments (E).}
+  \item{QGE}{Tests for marker effect while correcting for the background polygenic
+  effect x environment interaction and for population structure. \cr
+  Model: \eqn{y = X\beta + Zi + Qv + S\alpha + e}, \cr where \eqn{i ~ N(0, O_c\sigma^2_GE)} and O_c
+  is the Kronecker product of the genomic relationship matrix created using all markers
+  on chromosomes other than the marker being tested (K_c) and the genetic correlation
+  matrix across environments (E).}
 }
 }
 \examples{

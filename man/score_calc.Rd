@@ -4,7 +4,8 @@
 \alias{score_calc}
 \title{Calculate marker scores in association study}
 \usage{
-score_calc(M_test, model, snp_info, P3D, Hinv, y, X, Z0, K0, X_fixed, Z_rand)
+score_calc(M_test, model, snp_info, P3D, Hinv, test_qxe = FALSE, y, X, Z0, K0,
+  Z1 = NULL, K1 = NULL, X_fixed = NULL)
 }
 \arguments{
 \item{M_test}{Marker genotype matrix}
@@ -29,14 +30,17 @@ Must of length 1 or the number of chromosomes.}
 \item{K0}{List of covariance matrices of random main effects. Must be of length
 1 or the number of chromosomes.}
 
-\item{X_fixed}{Incidence matrix of environment fixed effects (but not including intercept)}
+\item{Z1}{Incidence matrix of gxe random effects}
 
-\item{Z_rand}{Incidence matrix of genotype random effects (but not including intercept)}
+\item{K1}{List of covariance matrices of gxe random effects.  Must be of length
+1 or the number of chromosomes.}
+
+\item{X_fixed}{Incidence matrix of environment fixed effects (but not including intercept)}
 }
 \description{
 Calculate marker scores in association study
 }
 \details{
 Calculate the p-value for each marker in an association study. The main effect
-of each marker is tested using a Wald test.
+of each marker and the qxe effect is tested using a Wald test.
 }

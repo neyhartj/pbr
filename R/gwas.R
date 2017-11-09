@@ -10,15 +10,13 @@
 #' @param model The type of association model to run. Can be one of: \code{"simple"},
 #' \code{"K"}, \code{"Q"}, \code{"QK"}, \code{"G"}, \code{"QG"}, ... . See \emph{Details}
 #' for more information on these models.
+#' @param test.qxe Logical. Should the QxE interaction be tested simultaneously?
 #' @param n.PC The number of principal components from singular value decomposition
 #' of the \code{K} matrix to use to correct for population structure. If \code{0},
 #' no correction for population structure is performed.
 #' @param P3D Logical. Population parameters previous determined.
 #' @param n.core The number of cores to use when calculating marker scores.
 #' @param impute.method The method by which to impute the marker genotypes.
-#'
-#' @return
-#' An object of class \code{gwas}, with marker scores for each trait.
 #'
 #' @details
 #' A brief description of model types follows:
@@ -48,6 +46,28 @@
 #'   Model: \eqn{y = X\beta + Zu + Qv + S\alpha + e}, \cr where \eqn{u ~ N(0, K\sigma^2_G)} and K
 #'   is the relationship matrix obtained using markers on all chromosomes excluding
 #'   the one on which the putative QTL resides.}
+#'   \item{KE}{Tests for marker effect while correcting for the background polygenic
+#'   effect x environment interaction. Does correct for population structure. \cr
+#'   Model: \eqn{y = X\beta + Zi + S\alpha + e}, \cr where \eqn{i ~ N(0, O\sigma^2_GE)} and O
+#'   is the Kronecker product of the genomic relationship matrix (K) and the genetic correlation
+#'   matrix across environments (E).}
+#'   \item{QKE}{Tests for marker effect while correcting for the background polygenic
+#'   effect x environment interaction and for population structure. \cr
+#'   Model: \eqn{y = X\beta + Zi + Qv + S\alpha + e}, \cr where \eqn{i ~ N(0, O\sigma^2_GE)} and O
+#'   is the Kronecker product of the genomic relationship matrix (K) and the genetic correlation
+#'   matrix across environments (E).}
+#'   \item{GE}{Tests for marker effect while correcting for the background polygenic
+#'   effect x environment interaction. Does not correct for population structure. \cr
+#'   Model: \eqn{y = X\beta + Zi + S\alpha + e}, \cr where \eqn{i ~ N(0, O_c\sigma^2_GE)} and O_c
+#'   is the Kronecker product of the genomic relationship matrix created using all markers
+#'   on chromosomes other than the marker being tested (K_c) and the genetic correlation
+#'   matrix across environments (E).}
+#'   \item{QGE}{Tests for marker effect while correcting for the background polygenic
+#'   effect x environment interaction and for population structure. \cr
+#'   Model: \eqn{y = X\beta + Zi + Qv + S\alpha + e}, \cr where \eqn{i ~ N(0, O_c\sigma^2_GE)} and O_c
+#'   is the Kronecker product of the genomic relationship matrix created using all markers
+#'   on chromosomes other than the marker being tested (K_c) and the genetic correlation
+#'   matrix across environments (E).}
 #' }
 #'
 #' @return
@@ -96,8 +116,8 @@
 #'
 #' @export
 #'
-gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", "G", "QG"),
-                 n.PC = 0, P3D = TRUE, n.core = 1, impute.method = c("mean", "EM", "pass")) {
+gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", "G", "QG", "KE", "QKE", "GE", "QGE"),
+                 test.qxe = FALSE, n.PC = 0, P3D = TRUE, n.core = 1, impute.method = c("mean", "EM", "pass")) {
 
   ## ERROR
   pheno <- as.data.frame(pheno)
@@ -113,6 +133,10 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
   stopifnot(class(fixed) == "formula")
   # Extract the terms in the fixed formula
   fixed_terms <- attr(terms(fixed), "term.labels")
+
+  # If model contains "E", and there are more than on fixed effect, error out
+  if (length(fixed_terms) > 1 & str_detect(model, "E"))
+    stop("For models with interaction (KE, QKE, GE, QGE), the only fixed effect permitted is the trial/environment.")
 
   # Make sure the fixed effect columns are in the phenotype df
   stopifnot(all(fixed_terms %in% colnames(pheno)))
@@ -173,7 +197,7 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
   M1 <- M[geno_names,]
 
 
-  if (model %in% c("K", "Q", "QK")) {
+  if (model %in% c("K", "Q", "QK", "KE", "QKE")) {
 
     ## Create covariance matrices - only if the specified model is given
     # Extract the whole matrix from the imputed markers
@@ -183,7 +207,7 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
     K0 <- list(K_all[geno_names, geno_names])
 
 
-  } else if (model %in% c("G", "QG")) {
+  } else if (model %in% c("G", "QG", "GE", "QGE")) {
 
     # If only one chromosome is present, error
     stopifnot(n_distinct(snp_info$chrom) > 1)
@@ -235,7 +259,7 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
     # Notification
     cat(paste("GWAS for trait: ", trait_names[i], ", using model: ", model, "\n", sep = ""))
 
-    # Matrix for random effects
+    # Matrix for base random effects
     ## First formula for the random effects
     rand_form <- as.formula(paste(trait_names[i], paste0("~ -1 +", rand_name)))
     mf <- model.frame(rand_form, pheno, drop.unused.levels = FALSE, na.action = "na.omit")
@@ -286,6 +310,22 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
 
     }
 
+
+    # If the model contains E, create calculate the genetic correlation matrix
+    if (str_detect(model, "E")) {
+
+      # Matrix for interaction random effects
+      rand1_form <- as.formula(paste(trait_names[i], paste0("~ -1 +", paste(rand_name, fixed_terms, sep = ":"))))
+      mf <- model.frame(rand1_form, pheno, drop.unused.levels = FALSE, na.action = "na.omit")
+      Z1 <- sparse.model.matrix(rand1_form, mf)
+
+      # Calculate genetic correlation across environments
+      E_mat <- cor(spread(mf, fixed_terms, trait_names[i])[,-1], use = "pairwise.complete.obs")
+      # Fill in missing with 0
+      E_mat[is.na(E_mat)] <- 0
+
+    }
+
     ## vector of response
     y <- model.response(mf)
     # Number of obs
@@ -294,26 +334,59 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
     # Solve
     if (P3D) {
 
-      # Fit the model
-      # The stream should split between simple and Q - and other models
-      if (model %in% c("simple", "Q")) {
-        Z_model <- diag(length(y))
-        K_model <- list(diag(ncol(Z_model)))
+      # Split the stream by the number of variance components to estimate (1 or 2)
+      if (!str_detect(model, "E")) {
 
-      } else if (model %in% c("K", "QK")) {
-        Z_model <- Z0
-        K_model <- K0
+        if (model %in% c("simple", "Q")) {
+          Z_model <- diag(length(y))
+          K_model <- list(diag(ncol(Z_model)))
+
+        } else if (model %in% c("K", "QK")) {
+          Z_model <- Z0
+          K_model <- K0
+
+        } else {
+          Z_model <- Z0
+          K_model <- K0_chr
+
+        }
+
+        # Fit the model
+        fit <- pmap(list(X_model, K_model), ~emmreml(y = y, X = .x, Z = Z_model, K = .y))
+        Hinv <- pmap(list(fit, K_model),
+                     ~H_inv(Vu = .x$Vu, Ve = .x$Ve, n = n, Z = Z_model, K = .y)) %>%
+          set_names(names(K_model))
+
+        # Create some null lists
+        Z1_model <- O_model  <- NULL
+
 
       } else {
-        Z_model <- Z0
-        K_model <- K0_chr
+        # Else look at the interaction models
+        if (model %in% c("KE", "QKE")) {
+          Z_model <- Z0
+          K_model <- K0
+          Z1_model <- Z1
+
+          # Interaction matrix
+          O_model <- map(K0, ~kronecker(X = E_mat, Y = ., make.dimnames = TRUE))
+
+        } else {
+          Z_model <- Z0
+          K_model <- K0_chr
+          Z1_model <- Z1
+
+          # Interaction matrix
+          O_model <- map(K0_chr, ~kronecker(X = E_mat, Y = ., make.dimnames = TRUE))
+
+        }
+
+        fit <- pmap(list(X_model, K_model, O_model),
+                    ~mmer(Y = y, X = ..1, Z = list(g = list(Z = Z0, K =  ..2), ge = list(Z = Z1, K = ..3)), silent = TRUE))
+        Hinv <- map(fit, ~as.matrix(.$V.inv))
+
 
       }
-
-      fit <- pmap(list(X_model, K_model), ~emmreml(y = y, X = .x, Z = Z_model, K = .y))
-      Hinv <- pmap(list(fit, K_model),
-                   ~H_inv(Vu = .x$Vu, Ve = .x$Ve, n = n, Z = Z_model, K = .y)) %>%
-        set_names(names(K_model))
 
       cat("Variance components estimated. Testing markers.\n")
 
@@ -343,23 +416,25 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
         cluster <- makeCluster(n.core)
         # Extract functions to send to the clusters
         env_to_export <- list(as.list(loadNamespace("pbr")), as.list(loadNamespace("purrr")),
-                      as.list(loadNamespace("EMMREML")),
+                      as.list(loadNamespace("EMMREML"), loadNamespace("sommer")),
                       list(M1 = M1, P3D = P3D, Hinv = Hinv, X_model = X_model,
                       Z_model = Z_model, y = y, K_model = K_model, model = model,
-                      Z0 = Z0))
+                      Z1_model = Z1_model, O_model = O_model, X_fixed = X_fixed,
+                      test.qxe = test.qxe))
         env_to_export <- unlist(env_to_export, recursive = FALSE)
 
         # Export the functions and data
         clusterExport(cl = cluster,
                       varlist = c("M1", "P3D", "Hinv", "X_model", "y", "Z_model",
-                               "K_model", "model", "Z0", "H_inv", "score_calc",
-                               "pmap", "map"), envir = as.environment(env_to_export))
+                               "K_model", "model", "Z1_model", "O_model", "X_fixed",
+                               "H_inv", "score_calc", "pmap", "map", "test.qxe", envir = as.environment(env_to_export)))
 
               # Run the code
         scores <- clusterApply(cl = cluster, x = mar_split, fun = function(mar_df) {
           score_calc(M_test = M1[,mar_df$marker, drop = FALSE], snp_info = mar_df,
                      P3D = P3D, Hinv = Hinv, X = X_model, y = y, Z0 = Z_model,
-                     K0 = K_model, model = model, Z_rand = Z0) })
+                     K0 = K_model, model = model, test_qxe = test.qxe, Z1 = Z1_model,
+                     K1 = O_model, X_fixed = X_fixed) })
 
         # Shut down the cluster
         stopCluster(cluster)
@@ -369,7 +444,8 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
         scores <- mclapply(X = mar_split, FUN = function(mar_df) {
           score_calc(M_test = M1[,mar_df$marker, drop = FALSE], snp_info = mar_df,
                      P3D = P3D, Hinv = Hinv, X = X_model, y = y, Z0 = Z_model,
-                     K0 = K_model, model = model, Z_rand = Z0)
+                     K0 = K_model, model = model, test_qxe = test.qxe, Z1 = Z1_model,
+                     K1 = O_model, X_fixed = X_fixed)
 
         }, mc.cores = n.core)
 
@@ -381,7 +457,7 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
     } else {
       scores <- score_calc(M_test = M1, snp_info = snp_info, P3D = P3D, Hinv = Hinv,
                            X = X_model, y = y, Z0 = Z_model, K0 = K_model, model = model,
-                           Z_rand = Z0)
+                           test_qxe = test.qxe, Z1 = Z1_model, K1 = O_model, X_fixed = X_fixed)
 
     }
 
