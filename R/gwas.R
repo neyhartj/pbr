@@ -263,7 +263,7 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
     ## First formula for the random effects
     rand_form <- as.formula(paste(trait_names[i], paste0("~ -1 +", rand_name)))
     mf <- model.frame(rand_form, pheno, drop.unused.levels = FALSE, na.action = "na.omit")
-    Z0 <- model.matrix(rand_form, mf)
+    Z_rand <- Z0 <- model.matrix(rand_form, mf) # Need to create a separate model matrix for subsetting markers
 
     ## Fixed effect model matrices
     # Formula for the response and fixed
@@ -316,7 +316,7 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
 
       # Matrix for interaction random effects
       rand1_form <- as.formula(paste(trait_names[i], paste0("~ -1 +", paste(rand_name, fixed_terms, sep = ":"))))
-      mf <- model.frame(rand1_form, pheno, drop.unused.levels = FALSE, na.action = "na.omit")
+      mf <- model.frame(rand1_form, pheno, drop.unused.levels = TRUE, na.action = "na.omit")
       Z1 <- sparse.model.matrix(rand1_form, mf)
 
       # Calculate genetic correlation across environments
@@ -414,26 +414,19 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
 
         # Create the cluster
         cluster <- makeCluster(n.core)
-        # Extract functions to send to the clusters
-        env_to_export <- list(as.list(loadNamespace("pbr")), as.list(loadNamespace("purrr")),
-                      as.list(loadNamespace("EMMREML"), loadNamespace("sommer")),
-                      list(M1 = M1, P3D = P3D, Hinv = Hinv, X_model = X_model,
-                      Z_model = Z_model, y = y, K_model = K_model, model = model,
-                      Z1_model = Z1_model, O_model = O_model, X_fixed = X_fixed,
-                      test.qxe = test.qxe))
-        env_to_export <- unlist(env_to_export, recursive = FALSE)
 
-        # Export the functions and data
+        # Export the data and functions
         clusterExport(cl = cluster,
                       varlist = c("M1", "P3D", "Hinv", "X_model", "y", "Z_model",
-                               "K_model", "model", "Z1_model", "O_model", "X_fixed",
-                               "H_inv", "score_calc", "pmap", "map", "test.qxe", envir = as.environment(env_to_export)))
+                                  "K_model", "model", "Z_rand", "Z1_model", "O_model", "X_fixed",
+                                  "test.qxe", "H_inv", "score_calc", "pmap", "map"),
+                      envir = environment())
 
-              # Run the code
+        # Run the code
         scores <- clusterApply(cl = cluster, x = mar_split, fun = function(mar_df) {
           score_calc(M_test = M1[,mar_df$marker, drop = FALSE], snp_info = mar_df,
                      P3D = P3D, Hinv = Hinv, X = X_model, y = y, Z0 = Z_model,
-                     K0 = K_model, model = model, test_qxe = test.qxe, Z1 = Z1_model,
+                     K0 = K_model, Z_rand = Z_rand, model = model, test_qxe = test.qxe, Z1 = Z1_model,
                      K1 = O_model, X_fixed = X_fixed) })
 
         # Shut down the cluster
@@ -444,7 +437,7 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
         scores <- mclapply(X = mar_split, FUN = function(mar_df) {
           score_calc(M_test = M1[,mar_df$marker, drop = FALSE], snp_info = mar_df,
                      P3D = P3D, Hinv = Hinv, X = X_model, y = y, Z0 = Z_model,
-                     K0 = K_model, model = model, test_qxe = test.qxe, Z1 = Z1_model,
+                     K0 = K_model, Z_rand = Z_rand, model = model, test_qxe = test.qxe, Z1 = Z1_model,
                      K1 = O_model, X_fixed = X_fixed)
 
         }, mc.cores = n.core)
@@ -457,7 +450,8 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
     } else {
       scores <- score_calc(M_test = M1, snp_info = snp_info, P3D = P3D, Hinv = Hinv,
                            X = X_model, y = y, Z0 = Z_model, K0 = K_model, model = model,
-                           test_qxe = test.qxe, Z1 = Z1_model, K1 = O_model, X_fixed = X_fixed)
+                           Z_rand = Z_rand, test_qxe = test.qxe, Z1 = Z1_model,
+                           K1 = O_model, X_fixed = X_fixed)
 
     }
 

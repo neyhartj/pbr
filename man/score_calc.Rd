@@ -5,7 +5,7 @@
 \title{Calculate marker scores in association study}
 \usage{
 score_calc(M_test, model, snp_info, P3D, Hinv, test_qxe = FALSE, y, X, Z0, K0,
-  Z1 = NULL, K1 = NULL, X_fixed = NULL)
+  Z_rand, Z1 = NULL, K1 = NULL, X_fixed = NULL)
 }
 \arguments{
 \item{M_test}{Marker genotype matrix}

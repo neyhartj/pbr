@@ -31,7 +31,7 @@
 #'
 #'
 score_calc <- function(M_test, model, snp_info, P3D, Hinv, test_qxe = FALSE,
-                       y, X, Z0, K0, Z1 = NULL, K1 = NULL, X_fixed = NULL) {
+                       y, X, Z0, K0, Z_rand, Z1 = NULL, K1 = NULL, X_fixed = NULL) {
 
   # Create a list of markers by chromosome or just a list
   # of markers
@@ -93,7 +93,7 @@ score_calc <- function(M_test, model, snp_info, P3D, Hinv, test_qxe = FALSE,
 
       ## Create an incidence matrix of SNP genotypes per phenotypic observation
       # Model matrix of SNP main effect
-      X_snp_main <- Z_use %*% m
+      X_snp_main <- Z_rand %*% m
 
       # Apply function over the column of the M matrix (i.e. markers)
       apply(X = X_snp_main, MARGIN = 2, FUN = function(snp_main) {
