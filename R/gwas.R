@@ -129,14 +129,24 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
   # n.PC cannot be less than 0
   stopifnot(n.PC >= 0)
 
-  # Make sure 'fixed' is a formula
-  stopifnot(class(fixed) == "formula")
-  # Extract the terms in the fixed formula
-  fixed_terms <- attr(terms(fixed), "term.labels")
+  # Make sure 'fixed' is NULL or a formula
+  stopifnot(is.null(fixed) | class(fixed) == "formula")
+
+  # If fixed is null, assign null to fixed_terms
+  if (is.null(fixed)) {
+    fixed_terms <- NULL
+  } else {
+    # Extract the terms in the fixed formula
+    fixed_terms <- attr(terms(fixed), "term.labels")
+  }
 
   # If model contains "E", and there are more than on fixed effect, error out
   if (length(fixed_terms) > 1 & str_detect(model, "E"))
     stop("For models with interaction (KE, QKE, GE, QGE), the only fixed effect permitted is the trial/environment.")
+
+  # If model contains "E", but there are not fixed effects, error out.
+  if (length(fixed_terms) == 0 & str_detect(model, "E"))
+    stop("For models with interaction (KE, QKE, GE, QGE), you must supply a fixed effect (environment).")
 
   # Make sure the fixed effect columns are in the phenotype df
   stopifnot(all(fixed_terms %in% colnames(pheno)))
@@ -151,9 +161,10 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
   # Name of the random effects column
   rand_name <- colnames(pheno)[1]
 
-  # Convert the random effects (lines) and fixed effects (environment) to a factor
+  # Convert the random effects (lines) and fixed effects to a factor
   pheno[,rand_name] <- as.factor(pheno[,rand_name, drop = TRUE])
-  pheno[,fixed_terms] <- as.factor(pheno[,fixed_terms, drop = TRUE])
+
+  if (!is.null(fixed_terms)) pheno[,fixed_terms] <- as.factor(pheno[,fixed_terms, drop = TRUE])
 
   # Number of fixed terms
   n_fixed <- length(fixed_terms)
@@ -277,8 +288,8 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
       X_fixed <- model.matrix(fixed_form, mf)
 
     } else {
-      # For completeness, include a matrix of 0s
-      X_fixed <- matrix(data = 0, nrow = nrow(X_mu), ncol = 1)
+      # Null matrix if no fixed effects
+      X_fixed <- NULL
 
     }
 

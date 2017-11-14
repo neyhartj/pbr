@@ -13,6 +13,7 @@
 #' @param Z0 Incidence matrix of random main effects (i.e. genotypes)
 #' @param K0 List of covariance matrices of random main effects. Must be of length
 #' 1 or the number of chromosomes.
+#' @param Z_rand Incidence matrix of random effects (but not including intercept)
 #' @param Z1 Incidence matrix of gxe random effects
 #' @param K1 List of covariance matrices of gxe random effects.  Must be of length
 #' 1 or the number of chromosomes.

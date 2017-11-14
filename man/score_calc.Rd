@@ -30,6 +30,8 @@ Must of length 1 or the number of chromosomes.}
 \item{K0}{List of covariance matrices of random main effects. Must be of length
 1 or the number of chromosomes.}
 
+\item{Z_rand}{Incidence matrix of random effects (but not including intercept)}
+
 \item{Z1}{Incidence matrix of gxe random effects}
 
 \item{K1}{List of covariance matrices of gxe random effects.  Must be of length
