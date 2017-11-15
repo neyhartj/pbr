@@ -218,8 +218,9 @@ score_calc <- function(M_test, model, snp_info, P3D, Hinv, test_qxe = FALSE,
         ## Re-estimate variance components?
         if (!P3D) {
           # Fit the model and get the inverse of the phenotypic vcov matrix
-          fit <- mmer(Y = y, X = X_use1, Z = list(g = list(Z = Z_use, K = k), ge = list(Z = Z1_use, K = k1)), silent = TRUE)
-          H2inv <- as.matrix(fit$V.inv)
+          fit <- emmremlMultiKernel(y = y, X = X_use1, Zlist = list(Z_use, Z1_use),
+                                    Klist = list(k, k1))
+          H2inv <- H_inv(Vu = fit$Vu, Ve = fit$Ve, weights = fit$weights, Zlist = list(Z_use, Z1_use), Klist = list(k, k1))
 
         }
 
@@ -411,14 +412,35 @@ plot_gwas <- function(x, fdr.level = 0.05, type = c("manhattan", "qq")) {
 #'
 #' @param Vu Estimated variance of random effects
 #' @param Ve Estimated variance of residuals
-#' @param n Number of observations
-#' @param Z Random effects incidence matrix
-#' @param K Covariance matrix for random effects
+#' @param weights Weights for the random effect(s). If the number of random
+#' effects is 1, weight = 1.
+#' @param Z List of random effects incidence matrices
+#' @param K List of covariance matrices for random effects
 #'
-H_inv <- function(Vu, Ve, n, Z, K) {
+#' @importFrom purrr pmap
+#'
+H_inv <- function(Vu, Ve, weights, Zlist, Klist) {
 
-  H <- (Z %*% K %*% t(Z)) + ((Ve / Vu) * diag(n))
-  solve(H)
+  # Number of observations
+  n <- nrow(Zlist[[1]])
+  # R matrix
+  R <- diag(n)
+  # Lambda
+  lambda <- Ve / Vu
+
+  # Create an empty list
+  ZKZlist <- vector("list",  length(Zlist))
+
+  # Iterate
+  for (i in seq_along(ZKZlist)) {
+    ZKZlist[[i]] <- (Zlist[[i]] %*% Klist[[i]] %*% t(Zlist[[i]])) * weights[i]
+  }
+
+  # Sum them
+  ZKZt <- reduce(ZKZlist, `+`)
+
+  # Add the residual covariance
+  H <- ZKZt + (lambda * R)
+  as.matrix(solve(H))
 
 } # Close the function
-

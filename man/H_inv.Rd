@@ -4,18 +4,19 @@
 \alias{H_inv}
 \title{Calculate the inverse of the H matrix}
 \usage{
-H_inv(Vu, Ve, n, Z, K)
+H_inv(Vu, Ve, weights, Zlist, Klist)
 }
 \arguments{
 \item{Vu}{Estimated variance of random effects}
 
 \item{Ve}{Estimated variance of residuals}
 
-\item{n}{Number of observations}
+\item{weights}{Weights for the random effect(s). If the number of random
+effects is 1, weight = 1.}
 
-\item{Z}{Random effects incidence matrix}
+\item{Z}{List of random effects incidence matrices}
 
-\item{K}{Covariance matrix for random effects}
+\item{K}{List of covariance matrices for random effects}
 }
 \description{
 Calculate the inverse of the H matrix

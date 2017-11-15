@@ -39,6 +39,15 @@ Performs a genomewide association analysis for the main effect of QTL. Most
 arguments are taken from the \code{\link[GWAS]{rrBLUP}} function.
 }
 \details{
+"P3D" refers to "population parameters previously determined" and was introduced by
+Zhang et al. (2010). If P3D = TRUE, the variance components are estimated once,
+and the phenotypic variance-covariance matrix is calculated as
+\eqn{var(y) = var(u1) + var(u2) + ... + var(e)} or \eqn{var(y) = ZGZ' + WHW' + ... + R},
+where G is the variance-covariance matrix of the first random effect, H is the
+variance covariance matrix of the second random effect (up to \emph{n} random
+effects), and R is the variance-covariance matrix of the
+
+
 A brief description of model types follows:
 
 \describe{

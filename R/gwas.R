@@ -19,6 +19,15 @@
 #' @param impute.method The method by which to impute the marker genotypes.
 #'
 #' @details
+#' "P3D" refers to "population parameters previously determined" and was introduced by
+#' Zhang et al. (2010). If P3D = TRUE, the variance components are estimated once,
+#' and the phenotypic variance-covariance matrix is calculated as
+#' \eqn{var(y) = var(u1) + var(u2) + ... + var(e)} or \eqn{var(y) = ZGZ' + WHW' + ... + R},
+#' where G is the variance-covariance matrix of the first random effect, H is the
+#' variance covariance matrix of the second random effect (up to \emph{n} random
+#' effects), and R is the variance-covariance matrix of the
+#'
+#'
 #' A brief description of model types follows:
 #'
 #' \describe{
@@ -107,7 +116,7 @@
 #'
 #'
 #' @importFrom rrBLUP A.mat
-#' @importFrom EMMREML emmreml
+#' @import EMMREML
 #' @import purrr
 #' @import dplyr
 #' @import tidyr
@@ -365,7 +374,7 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
         # Fit the model
         fit <- pmap(list(X_model, K_model), ~emmreml(y = y, X = .x, Z = Z_model, K = .y))
         Hinv <- pmap(list(fit, K_model),
-                     ~H_inv(Vu = .x$Vu, Ve = .x$Ve, n = n, Z = Z_model, K = .y)) %>%
+                     ~H_inv(Vu = .x$Vu, Ve = .x$Ve, weights = 1, Zlist = list(Z_model), Klist = list(.y))) %>%
           set_names(names(K_model))
 
         # Create some null lists
@@ -377,7 +386,7 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
         if (model %in% c("KE", "QKE")) {
           Z_model <- `dimnames<-`(Z0, NULL)
           K_model <- K0
-          Z1_model <- Z1
+          Z1_model <- as.matrix(Z1)
 
           # Interaction matrix
           O_model <- map(K0, ~kronecker(X = E_mat, Y = .))
@@ -385,7 +394,7 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
         } else {
           Z_model <- `dimnames<-`(Z0, NULL)
           K_model <- K0_chr
-          Z1_model <- Z1
+          Z1_model <- as.matrix(Z1)
 
           # Interaction matrix
           O_model <- map(K0_chr, ~kronecker(X = E_mat, Y = .))
@@ -393,8 +402,16 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
         }
 
         fit <- pmap(list(X_model, K_model, O_model),
-                    ~mmer(Y = y, X = ..1, Z = list(g = list(Z = Z_model, K =  ..2), ge = list(Z = Z1, K = ..3)), silent = TRUE))
-        Hinv <- map(fit, ~as.matrix(.$V.inv)) %>% set_names(names(K_model))
+                    ~emmremlMultiKernel(y = y, X = .x, Zlist = list(Z_model, Z1), Klist = list(..2, ..3)))
+
+        Hinv <- pmap(list(fit, K_model, O_model),
+                     ~H_inv(Vu = ..1$Vu, Ve = ..1$Ve, weights = ..1$weights,
+                            Zlist = list(Z_model, Z1_model), Klist = list(..2, ..3))) %>%
+          set_names(names(K_model))
+
+        # fit <- pmap(list(X_model, K_model, O_model),
+        #             ~mmer(Y = y, X = ..1, Z = list(g = list(Z = Z_model, K =  ..2), ge = list(Z = Z1, K = ..3)), silent = TRUE))
+        # Hinv <- map(fit, ~as.matrix(.$V.inv)) %>% set_names(names(K_model))
 
 
       }
