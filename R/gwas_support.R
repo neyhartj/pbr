@@ -217,11 +217,19 @@ score_calc <- function(M_test, model, snp_info, P3D, Hinv, test_qxe = FALSE,
 
         ## Re-estimate variance components?
         if (!P3D) {
-          # Fit the model and get the inverse of the phenotypic vcov matrix
-          fit <- emmremlMultiKernel(y = y, X = X_use1, Zlist = list(Z_use, Z1_use),
-                                    Klist = list(k, k1))
-          H2inv <- H_inv(Vu = fit$Vu, Ve = fit$Ve, weights = fit$weights, Zlist = list(Z_use, Z1_use), Klist = list(k, k1))
+          fit <- mmer(Y = y, X = X_use1, Z = list(gen = list(Z = Z_use, K = k),
+                                                  gxe = list(Z = Z1_use, K = k1)),
+                      silent = T)
 
+          # Calculate the weights (it is simply the ratio of the variance components divided
+          # by the sum of the variance components)
+          weights <- unlist(fit$var.comp[1:2]) %>% {. / sum(.)}
+
+          # Calculate the sum of the variance components
+          Vu <- sum(unlist(fit$var.comp[1:2]))
+
+          H2inv <- H_inv(Vu = Vu, Ve = fit$var.comp$units[1], weights = weights,
+                        Zlist = list(Z_use, Z1_use), Klist = list(k, k1))
         }
 
         # W matrix and inverse

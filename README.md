@@ -19,7 +19,7 @@ devtools::install_github("neyhartj/pbr")
 
 When you install `pbr`, a number of other packages are installed. The **core** set of packages - those that you might need for most analyses - include:
 
--   `dplyr`, `tidyr`, and `readr`, for data management
+-   `dplyr`, `tidyr`, `readr`, for data management and modeling
 -   `ggplot2`, for visualization
 -   `lme4`, for fitting mixed-effect models
 -   `agridat`, for various agricultural experiment data
@@ -30,6 +30,7 @@ Additionally, other packages are installed that may be useful for specialized an
 
     -   `qtl`, for QTL mapping and simulations
     -   `rrBLUP`, for GWAS and genomic selection
+
 -   Statistics:
 
     -   `agricolae`, for statistical procedures in agriculture research
@@ -43,10 +44,8 @@ Loading the `pbr` package also loads the **core** set of packages (dplyr, tidyr,
 
 ``` r
 library(pbr)
-#> Loading pbr: ggplot2
-#> Loading pbr: tidyr
-#> Loading pbr: readr
 #> Loading pbr: dplyr
+#> Loading pbr: readr
 #> Loading pbr: lme4
 #> Loading pbr: agridat
 ```

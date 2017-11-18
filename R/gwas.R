@@ -116,7 +116,8 @@
 #'
 #'
 #' @importFrom rrBLUP A.mat
-#' @import EMMREML
+#' @importFrom EMMREML emmreml
+#' @importFrom sommer mmer
 #' @import purrr
 #' @import dplyr
 #' @import tidyr
@@ -402,11 +403,19 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
         }
 
         fit <- pmap(list(X_model, K_model, O_model),
-                    ~emmremlMultiKernel(y = y, X = .x, Zlist = list(Z_model, Z1), Klist = list(..2, ..3)))
+                    ~mmer(Y = y, X = .x, Z = list(gen = list(Z = Z_model, K = ..2),
+                                                  gxe = list(Z = Z1, K = ..3)), silent = T))
 
-        Hinv <- pmap(list(fit, K_model, O_model),
-                     ~H_inv(Vu = ..1$Vu, Ve = ..1$Ve, weights = ..1$weights,
-                            Zlist = list(Z_model, Z1_model), Klist = list(..2, ..3))) %>%
+        # Calculate the weights (it is simply the ratio of the variance components divided
+        # by the sum of the variance components)
+        weights <- map(fit, ~unlist(.$var.comp[1:2]) %>% {. / sum(.)})
+
+        # Calculate the sum of the variance components
+        Vu <- map(fit, ~sum(unlist(.$var.comp[1:2])))
+
+        Hinv <- pmap(list(fit, Vu, weights, K_model, O_model),
+                     ~H_inv(Vu = ..2, Ve = ..1$var.comp$units[1], weights = ..3,
+                            Zlist = list(Z_model, Z1_model), Klist = list(..4, ..5))) %>%
           set_names(names(K_model))
 
         # fit <- pmap(list(X_model, K_model, O_model),
