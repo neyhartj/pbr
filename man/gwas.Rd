@@ -5,8 +5,9 @@
 \title{Genomewide Assocation Analysis Through Linear Mixed-Models}
 \usage{
 gwas(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", "G",
-  "QG", "KE", "QKE", "GE", "QGE"), test.qxe = FALSE, n.PC = 0, P3D = TRUE,
-  n.core = 1, impute.method = c("mean", "EM", "pass"))
+  "QG", "KE", "QKE", "GE", "QGE", "KKE", "QKKE", "GGE", "QGGE"),
+  test.qxe = FALSE, n.PC = 0, P3D = TRUE, n.core = 1,
+  impute.method = c("mean", "EM", "pass"))
 }
 \arguments{
 \item{pheno}{A data.frame of phenotypic data.}
@@ -54,49 +55,84 @@ A brief description of model types follows:
   \item{simple}{Tests for marker effect without correcting for background polygenic
   effect or for population structure. \cr
   Model: \eqn{y = X\beta + S\alpha + e}}
+
   \item{K}{Tests for marker effect while correcting for background polygenic
   effect, but not population structure. \cr
   Model: \eqn{y = X\beta + Zu + S\alpha + e}, where \eqn{u ~ N(0, K\sigma^2_G)}}
   \item{Q}{Tests for marker effect while correcting for population structure,
   but not background polygenic effect. \cr
   Model: \eqn{y = X\beta + Qv + S\alpha + e}}
+
   \item{QK}{Tests for marker effect while correcting for background polygenic
   effect and for population structure. \cr
   Model: \eqn{y = X\beta + Zu + Qv + S\alpha + e}, where \eqn{u ~ N(0, K\sigma^2_G)}}
+
   \item{G}{Tests for marker effect while correcting for the background polygenic
   effect of chromosomes other than the one on which the marker resides. Does
   not correct for population structure. \cr
   Model: \eqn{y = X\beta + Zu + S\alpha + e}, \cr where \eqn{u ~ N(0, K\sigma^2_G)} and K
   is the relationship matrix obtained using markers on all chromosomes excluding
   the one on which the putative QTL resides.}
+
   \item{QG}{Tests for marker effect while correcting for the background polygenic
   effect of chromosomes other than the one on which the marker resides. Does
   correct for population structure. \cr
   Model: \eqn{y = X\beta + Zu + Qv + S\alpha + e}, \cr where \eqn{u ~ N(0, K\sigma^2_G)} and K
   is the relationship matrix obtained using markers on all chromosomes excluding
   the one on which the putative QTL resides.}
+
   \item{KE}{Tests for marker effect while correcting for the background polygenic
   effect x environment interaction. Does correct for population structure. \cr
-  Model: \eqn{y = X\beta + Zi + S\alpha + e}, \cr where \eqn{i ~ N(0, O\sigma^2_GE)} and O
+  Model: \eqn{y = X\beta + Wm + S\alpha + e}, \cr where \eqn{m ~ N(0, O\sigma^2_GE)} and O
   is the Kronecker product of the genomic relationship matrix (K) and the genetic correlation
   matrix across environments (E).}
+
   \item{QKE}{Tests for marker effect while correcting for the background polygenic
   effect x environment interaction and for population structure. \cr
-  Model: \eqn{y = X\beta + Zi + Qv + S\alpha + e}, \cr where \eqn{i ~ N(0, O\sigma^2_GE)} and O
+  Model: \eqn{y = X\beta + Wm + Qv + S\alpha + e}, \cr where \eqn{m ~ N(0, O\sigma^2_GE)} and O
   is the Kronecker product of the genomic relationship matrix (K) and the genetic correlation
   matrix across environments (E).}
+
   \item{GE}{Tests for marker effect while correcting for the background polygenic
   effect x environment interaction. Does not correct for population structure. \cr
-  Model: \eqn{y = X\beta + Zi + S\alpha + e}, \cr where \eqn{i ~ N(0, O_c\sigma^2_GE)} and O_c
+  Model: \eqn{y = X\beta + Wm + S\alpha + e}, \cr where \eqn{m ~ N(0, O_c\sigma^2_GE)} and O_c
   is the Kronecker product of the genomic relationship matrix created using all markers
   on chromosomes other than the marker being tested (K_c) and the genetic correlation
   matrix across environments (E).}
+
   \item{QGE}{Tests for marker effect while correcting for the background polygenic
   effect x environment interaction and for population structure. \cr
-  Model: \eqn{y = X\beta + Zi + Qv + S\alpha + e}, \cr where \eqn{i ~ N(0, O_c\sigma^2_GE)} and O_c
+  Model: \eqn{y = X\beta + Wm + Qv + S\alpha + e}, \cr where \eqn{m ~ N(0, O_c\sigma^2_GE)} and O_c
   is the Kronecker product of the genomic relationship matrix created using all markers
   on chromosomes other than the marker being tested (K_c) and the genetic correlation
   matrix across environments (E).}
+
+  \item{KKE}{Tests for marker effect while correcting for polygenic background effect and
+  the background polygenic effect x environment interaction. Does not correct for population structure. \cr
+  Model: \eqn{y = X\beta + Zu + Wm + S\alpha + e}, \cr where \eqn{u ~ N(0, K\sigma^2_G)} and
+  \eqn{m ~ N(0, O\sigma^2_GE)} and Ois the Kronecker product of the genomic relationship matrix (K)
+  and the genetic correlation matrix across environments (E).}
+
+  \item{QKKE}{Tests for marker effect while correcting for the background polygenic
+  effect x environment interaction and for population structure. \cr
+  Model: \eqn{y = X\beta + Zi + Wm + Qv + S\alpha + e}, \cr where \eqn{u ~ N(0, K\sigma^2_G)} and
+  \eqn{m ~ N(0, O\sigma^2_GE)} and O is the Kronecker product of the genomic relationship
+  matrix (K) and the genetic correlation matrix across environments (E).}
+
+  \item{GGE}{Tests for marker effect while correcting for polygenic background effect and
+  the background polygenic effect x environment interaction. Does not correct for population structure. \cr
+  Model: \eqn{y = X\beta + Zu + Wm + S\alpha + e}, \cr where \eqn{u ~ N(0, K\sigma^2_G)} and
+  \eqn{m ~ N(0, O\sigma^2_GE)} and O is the Kronecker product of the genomic
+  relationship matrix created using all markers on chromosomes other than the
+  marker being tested (K_c) genetic correlation matrix across environments (E).}
+
+  \item{QGGE}{Tests for marker effect while correcting for the background polygenic
+  effect x environment interaction and for population structure. \cr
+  Model: \eqn{y = X\beta + Zu + Wm + Qv + S\alpha + e}, \cr where \eqn{u ~ N(0, K\sigma^2_G)}
+  and \eqn{m ~ N(0, O_c\sigma^2_GE)} and O_c is the Kronecker product of the
+  genomic relationship matrix created using all markers on chromosomes other
+  than the marker being tested (K_c) and the genetic correlation matrix across
+  environments (E).}
 }
 }
 \examples{

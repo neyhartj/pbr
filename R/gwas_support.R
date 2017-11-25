@@ -41,13 +41,14 @@ score_calc <- function(M_test, model, snp_info, P3D, Hinv, test_qxe = FALSE,
     map("marker")
 
   # Subset from the X and K matrix those chromosomes in the mar_list, if possible
-  # First split stream by whether the interaction term is tested
-  if (str_detect(model, "E")) {
-    # Then split by the presence of G
+  # First split stream by the number of variance components
+  if (model %in% c("KKE", "GGE", "QKKE", "QGGE")) {
+
+    # Split by presence of G
     if (str_detect(model, "G")) {
       K_use <- K0[names(mar_list)]
       Hinv_use <- Hinv[names(mar_list)]
-      X_use <- ifelse(model == "QGE", X[names(mar_list)], X)
+      X_use <- ifelse(model == "QGGE", X[names(mar_list)], X)
       K1_use <- K1[names(mar_list)]
 
     } else {
@@ -81,8 +82,8 @@ score_calc <- function(M_test, model, snp_info, P3D, Hinv, test_qxe = FALSE,
   n <- length(y)
 
   ## Test markers
-  # Split the stream by whether the interaction term is tested
-  if (!str_detect(model, "E")) {
+  # Split the stream by the number of variance components
+  if (!model %in% c("KKE", "GGE", "QKKE", "QGGE")) {
 
     # Map over the list of markers and the X or K matrix
     scores <- pmap(list(mar_list, X_use, K_use, Hinv_use), .f = function(mar, x, k, h) {

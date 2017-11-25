@@ -34,49 +34,84 @@
 #'   \item{simple}{Tests for marker effect without correcting for background polygenic
 #'   effect or for population structure. \cr
 #'   Model: \eqn{y = X\beta + S\alpha + e}}
+#'
 #'   \item{K}{Tests for marker effect while correcting for background polygenic
 #'   effect, but not population structure. \cr
 #'   Model: \eqn{y = X\beta + Zu + S\alpha + e}, where \eqn{u ~ N(0, K\sigma^2_G)}}
 #'   \item{Q}{Tests for marker effect while correcting for population structure,
 #'   but not background polygenic effect. \cr
 #'   Model: \eqn{y = X\beta + Qv + S\alpha + e}}
+#'
 #'   \item{QK}{Tests for marker effect while correcting for background polygenic
 #'   effect and for population structure. \cr
 #'   Model: \eqn{y = X\beta + Zu + Qv + S\alpha + e}, where \eqn{u ~ N(0, K\sigma^2_G)}}
+#'
 #'   \item{G}{Tests for marker effect while correcting for the background polygenic
 #'   effect of chromosomes other than the one on which the marker resides. Does
 #'   not correct for population structure. \cr
 #'   Model: \eqn{y = X\beta + Zu + S\alpha + e}, \cr where \eqn{u ~ N(0, K\sigma^2_G)} and K
 #'   is the relationship matrix obtained using markers on all chromosomes excluding
 #'   the one on which the putative QTL resides.}
+#'
 #'   \item{QG}{Tests for marker effect while correcting for the background polygenic
 #'   effect of chromosomes other than the one on which the marker resides. Does
 #'   correct for population structure. \cr
 #'   Model: \eqn{y = X\beta + Zu + Qv + S\alpha + e}, \cr where \eqn{u ~ N(0, K\sigma^2_G)} and K
 #'   is the relationship matrix obtained using markers on all chromosomes excluding
 #'   the one on which the putative QTL resides.}
+#'
 #'   \item{KE}{Tests for marker effect while correcting for the background polygenic
 #'   effect x environment interaction. Does correct for population structure. \cr
-#'   Model: \eqn{y = X\beta + Zi + S\alpha + e}, \cr where \eqn{i ~ N(0, O\sigma^2_GE)} and O
+#'   Model: \eqn{y = X\beta + Wm + S\alpha + e}, \cr where \eqn{m ~ N(0, O\sigma^2_GE)} and O
 #'   is the Kronecker product of the genomic relationship matrix (K) and the genetic correlation
 #'   matrix across environments (E).}
+#'
 #'   \item{QKE}{Tests for marker effect while correcting for the background polygenic
 #'   effect x environment interaction and for population structure. \cr
-#'   Model: \eqn{y = X\beta + Zi + Qv + S\alpha + e}, \cr where \eqn{i ~ N(0, O\sigma^2_GE)} and O
+#'   Model: \eqn{y = X\beta + Wm + Qv + S\alpha + e}, \cr where \eqn{m ~ N(0, O\sigma^2_GE)} and O
 #'   is the Kronecker product of the genomic relationship matrix (K) and the genetic correlation
 #'   matrix across environments (E).}
+#'
 #'   \item{GE}{Tests for marker effect while correcting for the background polygenic
 #'   effect x environment interaction. Does not correct for population structure. \cr
-#'   Model: \eqn{y = X\beta + Zi + S\alpha + e}, \cr where \eqn{i ~ N(0, O_c\sigma^2_GE)} and O_c
+#'   Model: \eqn{y = X\beta + Wm + S\alpha + e}, \cr where \eqn{m ~ N(0, O_c\sigma^2_GE)} and O_c
 #'   is the Kronecker product of the genomic relationship matrix created using all markers
 #'   on chromosomes other than the marker being tested (K_c) and the genetic correlation
 #'   matrix across environments (E).}
+#'
 #'   \item{QGE}{Tests for marker effect while correcting for the background polygenic
 #'   effect x environment interaction and for population structure. \cr
-#'   Model: \eqn{y = X\beta + Zi + Qv + S\alpha + e}, \cr where \eqn{i ~ N(0, O_c\sigma^2_GE)} and O_c
+#'   Model: \eqn{y = X\beta + Wm + Qv + S\alpha + e}, \cr where \eqn{m ~ N(0, O_c\sigma^2_GE)} and O_c
 #'   is the Kronecker product of the genomic relationship matrix created using all markers
 #'   on chromosomes other than the marker being tested (K_c) and the genetic correlation
 #'   matrix across environments (E).}
+#'
+#'   \item{KKE}{Tests for marker effect while correcting for polygenic background effect and
+#'   the background polygenic effect x environment interaction. Does not correct for population structure. \cr
+#'   Model: \eqn{y = X\beta + Zu + Wm + S\alpha + e}, \cr where \eqn{u ~ N(0, K\sigma^2_G)} and
+#'   \eqn{m ~ N(0, O\sigma^2_GE)} and Ois the Kronecker product of the genomic relationship matrix (K)
+#'   and the genetic correlation matrix across environments (E).}
+#'
+#'   \item{QKKE}{Tests for marker effect while correcting for the background polygenic
+#'   effect x environment interaction and for population structure. \cr
+#'   Model: \eqn{y = X\beta + Zi + Wm + Qv + S\alpha + e}, \cr where \eqn{u ~ N(0, K\sigma^2_G)} and
+#'   \eqn{m ~ N(0, O\sigma^2_GE)} and O is the Kronecker product of the genomic relationship
+#'   matrix (K) and the genetic correlation matrix across environments (E).}
+#'
+#'   \item{GGE}{Tests for marker effect while correcting for polygenic background effect and
+#'   the background polygenic effect x environment interaction. Does not correct for population structure. \cr
+#'   Model: \eqn{y = X\beta + Zu + Wm + S\alpha + e}, \cr where \eqn{u ~ N(0, K\sigma^2_G)} and
+#'   \eqn{m ~ N(0, O\sigma^2_GE)} and O is the Kronecker product of the genomic
+#'   relationship matrix created using all markers on chromosomes other than the
+#'   marker being tested (K_c) genetic correlation matrix across environments (E).}
+#'
+#'   \item{QGGE}{Tests for marker effect while correcting for the background polygenic
+#'   effect x environment interaction and for population structure. \cr
+#'   Model: \eqn{y = X\beta + Zu + Wm + Qv + S\alpha + e}, \cr where \eqn{u ~ N(0, K\sigma^2_G)}
+#'   and \eqn{m ~ N(0, O_c\sigma^2_GE)} and O_c is the Kronecker product of the
+#'   genomic relationship matrix created using all markers on chromosomes other
+#'   than the marker being tested (K_c) and the genetic correlation matrix across
+#'   environments (E).}
 #' }
 #'
 #' @return
@@ -126,7 +161,9 @@
 #'
 #' @export
 #'
-gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", "G", "QG", "KE", "QKE", "GE", "QGE"),
+gwas <- function(pheno, geno, fixed = NULL,
+                 model = c("simple", "K", "Q", "QK", "G", "QG", "KE", "QKE", "GE",
+                           "QGE", "KKE", "QKKE", "GGE", "QGGE"),
                  test.qxe = FALSE, n.PC = 0, P3D = TRUE, n.core = 1, impute.method = c("mean", "EM", "pass")) {
 
   ## ERROR
@@ -218,7 +255,7 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
   M1 <- M[geno_names,]
 
 
-  if (model %in% c("K", "Q", "QK", "KE", "QKE")) {
+  if (model %in% c("K", "Q", "QK", "KE", "QKE", "KKE", "QKKE")) {
 
     ## Create covariance matrices - only if the specified model is given
     # Extract the whole matrix from the imputed markers
@@ -228,7 +265,7 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
     K0 <- list(K_all[geno_names, geno_names])
 
 
-  } else if (model %in% c("G", "QG", "GE", "QGE")) {
+  } else if (str_detect(model, "G")) {
 
     # If only one chromosome is present, error
     stopifnot(n_distinct(snp_info$chrom) > 1)
@@ -253,12 +290,12 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
   ## PCs for population structure
   # PCs for population structure
   if (n.PC > 0) {
-    # If n.PC > 0, but the model is not Q, QK, or QK, do not use PCs
+    # If n.PC > 0, but the model is not Q, QK, QG, QKKE, or QGGE, do not use PCs
     if (!str_detect(model, "Q")) {
-      warning("The specified model is not one of 'Q', 'QK', or 'QG'. No PCs will be used as covariates.")
+      warning("The specified model is not one of 'Q', 'QK','QG', 'QGE', 'QKE', QKKE', or 'QGGE'. No PCs will be used as covariates.")
 
-    } else if (model == "QG") {
-      # If the model is the QG model, model population structure per chromosome
+    } else if (model %in% c("QG", "QGE", "QGGE")) {
+      # If the model is the QG, QGE, or QGGE model, model population structure per chromosome
       eig_vec_list <- map(K_chr, ~eigen(.)$vector)
 
     } else {
@@ -267,7 +304,7 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
     }
   } else {
     # If n.PC is equal to 0, but the model contains 'Q', error out
-    if (model %in% c("Q", "QK", "QG")) stop("'n.PC' == 0, but the model is one of 'Q', 'QK', or 'QG'.")
+    if (str_detect(model, "Q")) stop("'n.PC' == 0, but the model is one of 'Q', 'QK', 'QG', 'QKE', 'QGE', 'QKKE', 'QGGE'.")
 
   }
 
@@ -281,10 +318,25 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
     cat(paste("GWAS for trait: ", trait_names[i], ", using model: ", model, "\n", sep = ""))
 
     # Matrix for base random effects
-    ## First formula for the random effects
-    rand_form <- as.formula(paste(trait_names[i], paste0("~ -1 +", rand_name)))
-    mf <- model.frame(rand_form, pheno, drop.unused.levels = FALSE, na.action = "na.omit")
-    Z_rand <- Z0 <- model.matrix(rand_form, mf) # Need to create a separate model matrix for subsetting markers
+    ## If the model is one of K, G, KE, GE, KKE, GGE, QGGE, or QKKE, there will
+    ## be one random effect of the main genotype background effect
+    if (model %in% c("KE", "GE", "QKE", "QGE")) {
+      # Random effect will be GxE term
+      rand_form <- as.formula(paste(trait_names[i], paste0("~ -1 +", paste(rand_name, fixed_terms, sep = ":"))))
+      mf <- model.frame(rand_form, pheno, drop.unused.levels = FALSE, na.action = "na.omit")
+      Z_rand <- Z0 <- model.matrix(rand_form, mf) # Need to create a separate model matrix for subsetting markers
+
+      # Create another matrix to subset things
+      rand_form <- as.formula(paste(trait_names[i], paste0("~ -1 +", rand_name)))
+      Z_rand <- model.matrix(rand_form, mf) # Need to create a separate model matrix for subsetting markers
+
+    } else {
+      # Else the single random effect will be the main genotype effect
+      rand_form <- as.formula(paste(trait_names[i], paste0("~ -1 +", rand_name)))
+      mf <- model.frame(rand_form, pheno, drop.unused.levels = FALSE, na.action = "na.omit")
+      Z_rand <- Z0 <- model.matrix(rand_form, mf) # Need to create a separate model matrix for subsetting markers
+
+    }
 
     ## Fixed effect model matrices
     # Formula for the response and fixed
@@ -306,10 +358,10 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
     # If population structure should be corrected via PC, add those vectors to the X matrix
     if (n.PC > 1) {
       # If a G model, create n_chrom Q matrices
-      if (model == "QG") {
+      if (model %in% c("QG", "QGE", "QGGE")) {
         Q_chr <- map(eig_vec_list, ~ Z0 %*% .[,seq(n.PC), drop = FALSE])
 
-      } else if (model == "Q") {
+      } else if (model %in% c("Q", "QK", "QKE", "QKKE")) {
         Q <- Z0 %*% eig_vec_list[[1]][,seq(n.PC), drop = FALSE]
 
       } else {
@@ -322,7 +374,7 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
     }
 
     # Combine the Q matrix to make the fixed effect matrix
-    if (model == "QG") {
+    if (str_detect(model, "QG")) {
       X_model <- map(Q_chr, ~make_full(cbind(X_mu, X_fixed, .)))
 
     } else {
@@ -356,35 +408,11 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
     if (P3D) {
 
       # Split the stream by the number of variance components to estimate (1 or 2)
-      if (!str_detect(model, "E")) {
+      # 2 variance components first
+      if (model %in% c("KKE", "GGE", "QKKE", "QGGE")) {
 
-        if (model %in% c("simple", "Q")) {
-          Z_model <- diag(length(y))
-          K_model <- list(diag(ncol(Z_model)))
-
-        } else if (model %in% c("K", "QK")) {
-          Z_model <- Z0
-          K_model <- K0
-
-        } else {
-          Z_model <- Z0
-          K_model <- K0_chr
-
-        }
-
-        # Fit the model
-        fit <- pmap(list(X_model, K_model), ~emmreml(y = y, X = .x, Z = Z_model, K = .y))
-        Hinv <- pmap(list(fit, K_model),
-                     ~H_inv(Vu = .x$Vu, Ve = .x$Ve, weights = 1, Zlist = list(Z_model), Klist = list(.y))) %>%
-          set_names(names(K_model))
-
-        # Create some null lists
-        Z1_model <- O_model  <- NULL
-
-
-      } else {
-        # Else look at the interaction models
-        if (model %in% c("KE", "QKE")) {
+        # Create two variance component model matrices
+        if (model %in% c("KKE", "QKKE")) {
           Z_model <- `dimnames<-`(Z0, NULL)
           K_model <- K0
           Z1_model <- as.matrix(Z1)
@@ -418,10 +446,37 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
                             Zlist = list(Z_model, Z1_model), Klist = list(..4, ..5))) %>%
           set_names(names(K_model))
 
-        # fit <- pmap(list(X_model, K_model, O_model),
-        #             ~mmer(Y = y, X = ..1, Z = list(g = list(Z = Z_model, K =  ..2), ge = list(Z = Z1, K = ..3)), silent = TRUE))
-        # Hinv <- map(fit, ~as.matrix(.$V.inv)) %>% set_names(names(K_model))
+      } else {
+        # Now 1 variance component
 
+        # Adjust the random effect model matrices
+        if (model %in% c("simple", "Q")) {
+          Z_model <- diag(n)
+          K_model <- list(diag(ncol(Z_model)))
+
+        } else if (model %in% c("G", "QG")) {
+          Z_model <- Z0
+          K_model <- K0_chr
+
+        } else if (model %in% c("K", "QK")) {
+          Z_model <- Z0
+          K_model <- K0
+
+        } else {
+          Z_model <- `dimnames<-`(Z0, NULL)
+          K_model <- ifelse(model == "KE", K0, K0_chr)
+          K_model <- map(K_model, ~kronecker(X = E_mat, Y = .))
+
+        }
+
+        # Fit the model - 1 variance component
+        fit <- pmap(list(X_model, K_model), ~emmreml(y = y, X = .x, Z = Z_model, K = .y))
+        Hinv <- pmap(list(fit, K_model),
+                     ~H_inv(Vu = .x$Vu, Ve = .x$Ve, weights = 1, Zlist = list(Z_model), Klist = list(.y))) %>%
+          set_names(names(K_model))
+
+        # Create some null lists
+        Z1_model <- O_model  <- NULL
 
       }
 
