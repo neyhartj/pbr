@@ -464,7 +464,7 @@ gwas <- function(pheno, geno, fixed = NULL,
 
         } else {
           Z_model <- `dimnames<-`(Z0, NULL)
-          K_model <- ifelse(model == "KE", K0, K0_chr)
+          K_model <- if (model == "KE") {K0} else {K0_chr}
           K_model <- map(K_model, ~kronecker(X = E_mat, Y = .))
 
         }
