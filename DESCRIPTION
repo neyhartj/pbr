@@ -5,7 +5,7 @@ Authors@R: person("Jeff", "Neyhart", email = "neyhartje@gmail.com", role = c("au
 Description: The package includes relevant data and convenience functions for
     running the code included in "Plant Breeding in R."
 Depends:
-    R (>= 3.3.2)
+    R (>= 3.2.0)
 Imports:
     dplyr,
     readr,
