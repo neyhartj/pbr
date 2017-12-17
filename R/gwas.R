@@ -230,7 +230,9 @@ gwas <- function(pheno, geno, fixed = NULL,
   make_full <- function(X) {
     svd.X <- svd(X)
     r <- max(which(svd.X$d > 1e-08))
-    return(as.matrix(svd.X$u[, 1:r]))
+    X.full <- as.matrix(svd.X$u[, 1:r])
+    # X.full <- X[,-ncol(X)]
+    return(X.full)
   }
 
   ## M genotype matrix - subset for the levels of genotypes in the pheno df
@@ -323,7 +325,7 @@ gwas <- function(pheno, geno, fixed = NULL,
     if (model %in% c("KE", "GE", "QKE", "QGE")) {
       # Random effect will be GxE term
       rand_form <- as.formula(paste(trait_names[i], paste0("~ -1 +", paste(rand_name, fixed_terms, sep = ":"))))
-      mf <- model.frame(rand_form, pheno, drop.unused.levels = FALSE, na.action = "na.omit")
+      mf <- model.frame(rand_form, pheno, drop.unused.levels = TRUE, na.action = "na.omit")
       Z_rand <- Z0 <- model.matrix(rand_form, mf) # Need to create a separate model matrix for subsetting markers
 
       # Create another matrix to subset things
@@ -333,7 +335,7 @@ gwas <- function(pheno, geno, fixed = NULL,
     } else {
       # Else the single random effect will be the main genotype effect
       rand_form <- as.formula(paste(trait_names[i], paste0("~ -1 +", rand_name)))
-      mf <- model.frame(rand_form, pheno, drop.unused.levels = FALSE, na.action = "na.omit")
+      mf <- model.frame(rand_form, pheno, drop.unused.levels = TRUE, na.action = "na.omit")
       Z_rand <- Z0 <- model.matrix(rand_form, mf) # Need to create a separate model matrix for subsetting markers
 
     }
