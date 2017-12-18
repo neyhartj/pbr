@@ -199,7 +199,7 @@ score_calc <- function(M_test, model, snp_info, P3D, Hinv, test_qxe = FALSE,
 
       ## Create an incidence matrix of SNP genotypes per phenotypic observation
       # Model matrix of SNP main effect
-      X_snp_main <- Z_use %*% m
+      X_snp_main <- Z_rand %*% m
 
       # Apply function over the column of the M matrix (i.e. markers)
       apply(X = X_snp_main, MARGIN = 2, FUN = function(snp_main) {
@@ -275,6 +275,7 @@ score_calc <- function(M_test, model, snp_info, P3D, Hinv, test_qxe = FALSE,
             # L <- matrix(1, nrow = 1, ncol = length(p_mar_qtlxe))
             # Marker x E betas
             beta1 <- L %*% beta[p_mar1,, drop = FALSE]
+            row.names(beta1) <- colnames(X_use1)[p_mar1]
             mat <- qr.solve(L %*% CovBeta[p_mar1, p_mar1] %*% t(L))
 
             # Wald statistic
@@ -296,7 +297,9 @@ score_calc <- function(M_test, model, snp_info, P3D, Hinv, test_qxe = FALSE,
                                 W_statistic = c(w0, w1), p_value = c(p_main, p_qxe)),
              estimates = list(beta0 = beta0, beta1 = beta1))
 
-        }) }) # Close the apply and pmap functions
+        })
+
+      }) # Close the apply and pmap functions
 
   }
 
@@ -446,7 +449,8 @@ H_inv <- function(Vu, Ve, weights, Zlist, Klist) {
   }
 
   # Sum them
-  ZKZt <- reduce(ZKZlist, `+`)
+
+  ZKZt <- purrr::reduce(ZKZlist, `+`)
 
   # Add the residual covariance
   H <- ZKZt + (lambda * R)

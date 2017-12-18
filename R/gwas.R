@@ -559,7 +559,8 @@ gwas <- function(pheno, geno, fixed = NULL,
     bind_rows() %>%
     select(trait, marker, names(.)) %>%
     left_join(snp_info, ., by = "marker") %>%
-    arrange(trait)
+    arrange(trait) %>%
+    as_data_frame()
 
   # Create a list with metadata and output as a gwas file
   out <- list(
