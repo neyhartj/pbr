@@ -49,6 +49,11 @@ herit_boot.lm <- function(object, exp, ms_exp, boot.reps = 1000, alpha = 0.05, .
   # Extract other arguments
   other_args <- list(...)
 
+  # Parse if necessary
+  if (all(length(other_args) == 1, sapply(other_args, class) == "list")) {
+    other_args <- do.call("c", other_args)
+  }
+
   # Extract the model frame
   mf <- model.frame(object)
 
@@ -97,14 +102,19 @@ herit_boot.lmerMod <- function(object, exp, boot.reps = 1000, alpha = 0.05, ...)
   # Extract other arguments
   other_args <- list(...)
 
+  # Parse if necessary
+  if (all(length(other_args) == 1, sapply(other_args, class) == "list")) {
+    other_args <- do.call("c", other_args)
+  }
+
   # Extract the model frame
   mf <- model.frame(object)
 
   # Create a function to calculate heritability from the model object
-  herit_use <- function(x) herit(object = x, exp = exp, ... = other_args)
+  herit_use <- function(object) herit(object = object, exp = exp, other_args)
 
   # Perform bootstrapping
-  boot_herit <- bootMer(x = object, FUN = herit_use, nsim = boot.reps, type = "parametric")
+  boot_herit <- bootMer(x = object, FUN = herit_use, nsim = boot.reps, type = "parametric", .progress = "txt")
 
   # Extract the original fit
   base_herit <- boot_herit$t0

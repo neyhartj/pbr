@@ -91,6 +91,11 @@ herit.lm <- function(object, exp, ms_exp, ...) {
   # Capture the other arguments
   other_args <- list(...)
 
+  # Parse if necessary
+  if (all(length(other_args) == 1, sapply(other_args, class) == "list")) {
+    other_args <- do.call("c", other_args)
+  }
+
   # Parse the equation text
   ms_exp_parsed <- lapply(X = ms_exp1, function(x) parse(text = x))
   exp_parsed <- parse(text = exp1)
@@ -136,6 +141,11 @@ herit.lmerMod <- function(object, exp, ...) {
 
   # Capture the other arguments
   other_args <- list(...)
+
+  # Parse if necessary
+  if (all(length(other_args) == 1, sapply(other_args, class) == "list")) {
+    other_args <- do.call("c", other_args)
+  }
 
   # Create a new environment to evaluate expressions and assign values
   exp_env <- new.env(parent = parent.frame())
