@@ -326,17 +326,22 @@ gwas <- function(pheno, geno, fixed = NULL,
       # Random effect will be GxE term
       rand_form <- as.formula(paste(trait_names[i], paste0("~ -1 +", paste(rand_name, fixed_terms, sep = ":"))))
       mf <- model.frame(rand_form, pheno, drop.unused.levels = TRUE, na.action = "na.omit")
-      Z_rand <- Z0 <- model.matrix(rand_form, mf) # Need to create a separate model matrix for subsetting markers
+      Z0 <- model.matrix(rand_form, mf) # Need to create a separate model matrix for subsetting markers
+
 
       # Create another matrix to subset things
       rand_form <- as.formula(paste(trait_names[i], paste0("~ -1 +", rand_name)))
-      Z_rand <- model.matrix(rand_form, mf) # Need to create a separate model matrix for subsetting markers
+      mf_rand <- model.frame(rand_form, pheno)
+      Z_rand <- model.matrix(rand_form, mf_rand)
 
     } else {
       # Else the single random effect will be the main genotype effect
       rand_form <- as.formula(paste(trait_names[i], paste0("~ -1 +", rand_name)))
       mf <- model.frame(rand_form, pheno, drop.unused.levels = TRUE, na.action = "na.omit")
-      Z_rand <- Z0 <- model.matrix(rand_form, mf) # Need to create a separate model matrix for subsetting markers
+      Z0 <- model.matrix(rand_form, mf) # Need to create a separate model matrix for subsetting markers
+
+      mf_rand <- model.frame(rand_form, pheno)
+      Z_rand <- model.matrix(rand_form, mf_rand)
 
     }
 
@@ -470,6 +475,9 @@ gwas <- function(pheno, geno, fixed = NULL,
           K_model <- map(K_model, ~kronecker(X = E_mat, Y = .))
 
         }
+
+        # Subset the K matrix
+        K_model <- map(K_model, ~Z_rand %*% . %*% t(Z_rand))
 
         # Fit the model - 1 variance component
         fit <- pmap(list(X_model, K_model), ~emmreml(y = y, X = .x, Z = Z_model, K = .y))
