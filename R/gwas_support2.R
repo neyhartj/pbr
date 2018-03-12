@@ -79,6 +79,9 @@ score_calc <- function(M_test, model, snp_info, P3D, Hinv, y, X, Z0, K0, Z_rand,
       ## First calculate the main effect of the marker
       X_use1 <- cbind(x, snp_main)
 
+      # Number of fixed terms
+      p <- ncol(X_use1)
+
       ## Re-estimate variance components?
       if (!P3D) {
         # Fit the model
@@ -106,7 +109,6 @@ score_calc <- function(M_test, model, snp_info, P3D, Hinv, y, X, Z0, K0, Z_rand,
           resid <- y - y_hat
 
           # Number of fixed terms
-          p <- ncol(X_use1)
           v2 <- n - p
           # Estimate of sum of squared residuals
           s2 <- as.numeric(crossprod(resid, H2inv %*% resid))/v2

@@ -25,7 +25,7 @@
 #' \eqn{var(y) = var(u1) + var(u2) + ... + var(e)} or \eqn{var(y) = ZGZ' + WHW' + ... + R},
 #' where G is the variance-covariance matrix of the first random effect, H is the
 #' variance covariance matrix of the second random effect (up to \emph{n} random
-#' effects), and R is the variance-covariance matrix of the
+#' effects), and R is the variance-covariance matrix of the residuals
 #'
 #'
 #' A brief description of model types follows:
@@ -315,23 +315,23 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
     # Number of obs
     n <- length(y)
 
+    # Adjust the random effect model matrices
+    if (model %in% c("simple", "Q")) {
+      Z_model <- diag(n)
+      K_model <- list(diag(ncol(Z_model)))
+
+    } else if (model %in% c("G", "QG")) {
+      Z_model <- Z0
+      K_model <- K0_chr
+
+    } else  {
+      Z_model <- Z0
+      K_model <- K0
+
+    }
+
     # Solve
     if (P3D) {
-
-      # Adjust the random effect model matrices
-      if (model %in% c("simple", "Q")) {
-        Z_model <- diag(n)
-        K_model <- list(diag(ncol(Z_model)))
-
-      } else if (model %in% c("G", "QG")) {
-        Z_model <- Z0
-        K_model <- K0_chr
-
-      } else  {
-        Z_model <- Z0
-        K_model <- K0
-
-      }
 
       # # Subset the K matrix
       # K_model <- map(K_model, ~Z_rand %*% . %*% t(Z_rand))
@@ -403,8 +403,7 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
     } else {
       scores <- score_calc(M_test = M1, snp_info = snp_info, P3D = P3D, Hinv = Hinv,
                            X = X_model, y = y, Z0 = Z_model, K0 = K_model, model = model,
-                           Z_rand = Z_rand, test_qxe = test.qxe, Z1 = Z1_model,
-                           K1 = O_model, X_fixed = X_fixed)
+                           Z_rand = Z_rand, X_fixed = X_fixed)
 
     }
 

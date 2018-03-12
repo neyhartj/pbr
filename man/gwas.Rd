@@ -46,7 +46,7 @@ and the phenotypic variance-covariance matrix is calculated as
 \eqn{var(y) = var(u1) + var(u2) + ... + var(e)} or \eqn{var(y) = ZGZ' + WHW' + ... + R},
 where G is the variance-covariance matrix of the first random effect, H is the
 variance covariance matrix of the second random effect (up to \emph{n} random
-effects), and R is the variance-covariance matrix of the
+effects), and R is the variance-covariance matrix of the residuals
 
 
 A brief description of model types follows:
