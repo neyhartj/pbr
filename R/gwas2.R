@@ -334,7 +334,7 @@ gwas <- function(pheno, geno, fixed = NULL, model = c("simple", "K", "Q", "QK", 
     if (P3D) {
 
       # # Subset the K matrix
-      # K_model <- map(K_model, ~Z_rand %*% . %*% t(Z_rand))
+      K_model <- map(K_model, ~Z_rand %*% . %*% t(Z_rand))
 
       # Fit the model - 1 variance component
       fit <- pmap(list(X_model, K_model), ~emmreml(y = y, X = .x, Z = Z_model, K = .y))
