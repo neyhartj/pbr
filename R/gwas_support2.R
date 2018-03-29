@@ -25,7 +25,6 @@
 #' of each marker and the qxe effect is tested using a Wald test.
 #'
 #' @importFrom EMMREML emmreml
-#' @importFrom sommer mmer
 #' @importFrom purrr map map_df
 #' @import dplyr
 #' @import stringr

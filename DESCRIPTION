@@ -11,22 +11,22 @@ Imports:
     readr,
     purrr,
     stringr,
+    tidyr,
+    ggplot2,
+    broom,
     qtl,
     lme4,
     rrBLUP,
+    EMMREML,
     BGLR,
     agricolae,
     agridat
 Suggests:
-    tidyr,
-    ggplot2,
     modelr,
     purrr,
     knitr,
     rmarkdown,
     PopVar,
-    sommer,
-    EMMREML,
     lsmeans,
     parallel
 License: MIT + file LICENSE

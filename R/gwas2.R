@@ -101,7 +101,6 @@
 #'
 #' @importFrom rrBLUP A.mat
 #' @importFrom EMMREML emmreml
-#' @importFrom sommer mmer
 #' @import purrr
 #' @import dplyr
 #' @import tidyr
