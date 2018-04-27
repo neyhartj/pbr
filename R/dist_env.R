@@ -37,7 +37,9 @@
 #' plot(yang_barley_clust)
 #' }
 #'
-#' @import dplyr
+#'
+#' @importFrom utils combn
+#' @importFrom stats as.dist
 #'
 #' @export
 #'
@@ -55,57 +57,48 @@ dist_env <- function(x, gen.col = "gen", env.col = "env", pheno.col = "yield") {
     stop("The values of gen.col or env.col or pheno.col are not columns in the x data.frame.")
 
   # Pull out environment names
-  env <- x[,env.col] %>%
-    unique() %>%
-    as.character()
-
+  env_names <- unique(as.character(x[[env.col]]))
   # Number of environments
-  n_env <- length(env)
+  n_env <- length(env_names)
+
+  ## Make a table of the observations in the dataset
+  x_table <- table(x[c(env.col, gen.col)])
+  # Are any greater than 1?
+  if (any(x_table > 1)) stop ("Only one observation of each genotype in each environment should be included in the dataset.")
+
+  # Order on environment, then genotype
+  x1 <- x[order(x[[env.col]], x[[gen.col]]), , drop = FALSE]
 
   # Iterate over pairs
-  D_ij <- combn(x = env, m = 2, FUN = function(env_pairs) {
+  D_ij <- combn(x = env_names, m = 2, FUN = function(env_pairs) {
 
-    # Subset the data for the environments and common genotypes
-    ## First set lazy evaluations of the filter criteria for environments
-    env_filter_criteria <- lazyeval::interp(~ col %in% env_pairs, col = as.name(env.col))
-    # Now for genotypes
-    geno_filter_criteria <- lazyeval::interp(~ col %in% x_geno, col = as.name(gen.col))
-    ## Do the same for the summary
-    summarize_exp <- lazyeval::interp(~ mean(val), val = as.name(pheno.col))
+    ## Subset the data for this environment pair
+    env_index <- x1[[env.col]] %in% env_pairs
+    x_sub <- x1[env_index, , drop = FALSE]
 
-    x_sub <- x %>%
-      filter_(env_filter_criteria) %>%
-      # Calculate the mean of each genotype in that environment
-      group_by_(.dots = c(env.col, gen.col)) %>%
-      summarize_(value = summarize_exp)
+    # Find the common genotypes
+    geno_count <- table(x_sub[[gen.col]])
+    x_geno <- names(geno_count[geno_count == 2])
 
-    # Find the genotypes that are common (i.e. 2 obs)
-    x_geno <- x_sub %>%
-      # Filter genotypes with less than 2 obs
-      group_by_(.dots = gen.col) %>%
-      filter(n() == 2) %>%
-      distinct(gen.col) %>%
-      pull()
+    # Subset the data again
+    x_sub1 <- x_sub[x_sub[[gen.col]] %in% x_geno, , drop = FALSE]
 
-    # In each environment, calculate the deviation from each observation to the mean of
-    # all observation and divide by the sd of all observations (`scale` function)
-    # Then find the mean squared differences. This is the distance
-    x_sub %>%
-      group_by_(.dots = env.col) %>%
-      mutate(t_ij = scale(value)) %>%
-      # Filter for genotypes that are found in both environments
-      filter_(geno_filter_criteria) %>%
-      group_by_(.dots = gen.col) %>%
-      summarize(diff_sq = diff(t_ij)^2) %>%
-      pull(diff_sq) %>%
-      # Since the difference between t_ij is only for the common genotypes, the mean
-      # at this point is division by the number of common genotypes
-      mean()
+    # Scale the phenotypic values by the mean and sd
+    pheno_scale <- tapply(X = x_sub1[[pheno.col]], INDEX = x_sub1[[env.col]],
+                          function(x) as.numeric(scale(x)), simplify = FALSE)
+
+    # Find the squared differences between genotypes
+    pheno_scale_diff <- tapply(X = unlist(pheno_scale, use.names = FALSE),
+                               INDEX = x_sub1[[gen.col]],
+                               function(x) diff(x)^2, simplify = FALSE)
+
+    # Calculate the mean among these squared differences and return
+    mean(unlist(pheno_scale_diff))
 
   })
 
   # Empty matrix
-  D_mat <- matrix(0, nrow = n_env, ncol = n_env, dimnames = list(env, env))
+  D_mat <- matrix(0, nrow = n_env, ncol = n_env, dimnames = list(env_names, env_names))
 
   # Add data
   D_mat[lower.tri(D_mat)] <- D_ij

@@ -32,19 +32,49 @@
 #'   \item{ci_upper}{The upper limit of the confidence interval.}
 #' }
 #'
-#' @importFrom purrr map
+#' #' # Use the gauch.soy dataset
+#' data("gauch.soy")
+#'
+#' # Filter
+#' gauch_soy1 <- gauch.soy %>%
+#'   group_by(env) %>%
+#'   filter(n_distinct(gen, rep) == 28)
+#'
+#' # Set the number of reps and number of environments
+#' n_r <- 4
+#' n_e <- 36
+#'
+#' # Fit a linear model using lm
+#' lm_mod <- lm(yield ~ gen + env + gen:env + rep %in% env, data = gauch_soy1)
+#'
+#' # Variance components from a fixed effects model are derived from the ANOVA table.
+#' # The function also required expressions to calculate the variance components
+#' ms.exp <- list("gen:env" = "(gen:env - Residuals) / n_r",
+#'                "gen" = "(gen - gen:env) / (n_r * n_e)")
+#'
+#' exp = "gen / (gen + (gen:env / n_e) + (Residuals / n_r))"
+#'
+#' herit(object = lm_mod, exp = exp, ms.exp = ms.exp, n_r = n_r, n_e = n_e)
+#'
+#' # Fit a linear model using lmer
+#' lmer_mod <- lmer(yield ~ (1|gen) + (1|env) + (1|gen:env) + (1|env:rep), data = gauch_soy1)
+#' # Calculate heritability
+#' herit(object = lmer_mod, exp = "gen / (gen + (gen:env / n_e) + (Residual / n_r))",
+#'       n_r = n_r, n_e = n_e)
+#'
+#'
 #' @importFrom lme4 bootMer
 #'
 #' @export
 #'
-herit_boot <- function(object, exp, ms_exp, boot.reps = 1000, alpha = 0.05, ...) {
+herit_boot <- function(object, ...) {
 
-  UseMethod(generic = "herit_boot", object)
+  UseMethod(generic = "herit_boot", object = object)
 
 }
 
 
-herit_boot.lm <- function(object, exp, ms_exp, boot.reps = 1000, alpha = 0.05, ...) {
+herit_boot.lm <- function(object, exp, ms.exp, boot.reps = 1000, alpha = 0.05, ...) {
 
   # Extract other arguments
   other_args <- list(...)
@@ -58,15 +88,18 @@ herit_boot.lm <- function(object, exp, ms_exp, boot.reps = 1000, alpha = 0.05, .
   mf <- model.frame(object)
 
   # Create a function to calculate heritability from the model object
-  herit_use <- function(x) herit(object = x, exp = exp, ms_exp = ms_exp, other_args)
+  herit_use <- function(x) herit(object = x, exp = exp, ms.exp = ms.exp, other_args)
 
   ## Perform bootstrapping
   # First simulate from the model
   sim_response <- simulate(object = object, nsim = boot.reps)
 
+  # Get the column position of the response variable in the model.frame
+  resp_pos <- attr(terms(mf), "response")
+
   # Update the model frame with the data
   mf_update <- lapply(X = sim_response, FUN = function(x) {
-    mf[,1] <- x
+    mf[,resp_pos] <- x
     return(mf)
   })
 
@@ -75,22 +108,46 @@ herit_boot.lm <- function(object, exp, ms_exp, boot.reps = 1000, alpha = 0.05, .
 
   # Calculate heritability on the original data
   base_herit <- herit_use(object)
-
   # Calculate the heritability for each new model object
-  boot_herit <- map_dbl(sim_refit, herit_use)
+  boot_herit <- lapply(sim_refit, herit_use)
+
+
+  ## Calculate standard error, bias, and confidence intervals for heritability
+  ## and the variance components
+
+  # First pull out the heritability
+  h_list <- sapply(X = boot_herit, "[[", "heritability")
 
   # Calculate the standard error
-  se <- sd(boot_herit)
+  h_se <- sd(h_list)
   # Calculate the bias
-  bias <- mean(boot_herit) - base_herit
+  h_bias <- mean(h_list) - base_herit$heritability
 
   # Calculate the confidence interval
-  ci_lower = (2 * base_herit) - quantile(boot_herit, 1 - (alpha / 2))
-  ci_upper = (2 * base_herit) - quantile(boot_herit, (alpha / 2))
+  h_ci <- quantile(h_list, probs = c((alpha / 2), 1 - (alpha / 2)))
 
-  # Return the heritability and the standard error
-  data.frame(heritability = base_herit, se = se, bias = bias, ci_lower = ci_lower,
-             ci_upper = ci_upper, row.names = NULL)
+
+  ## Now do the same for the variance components
+  var_comp_list <- lapply(X = boot_herit, "[[", "var_comp")
+  # Condense into a usable matrix
+  var_comp_mat <- sapply(X = var_comp_list, FUN = "[[", "variance")
+  row.names(var_comp_mat) <- var_comp_list[[1]]$source
+
+  ## Apply a function by rows
+  var_comp_se <- apply(X = var_comp_mat, MARGIN = 1, FUN = sd)
+  var_comp_bias <- rowMeans(var_comp_mat) - base_herit$var_comp$variance
+  var_comp_ci <- apply(X = var_comp_mat, MARGIN = 1, FUN = quantile, probs = c((alpha / 2), 1 - (alpha / 2)))
+
+
+  ## Package everything together
+  h_summary <- data.frame(heritability = base_herit$heritability, std.error = h_se, bias = h_bias, t(h_ci),
+                          check.names = FALSE)
+  var_comp_summary <- data.frame(base_herit$var_comp, std.error = var_comp_se,
+                                 bias = var_comp_bias, t(var_comp_ci), row.names = NULL,
+                                 stringsAsFactors = FALSE, check.names = FALSE)
+
+  # Return a list
+  list(heritability = h_summary, var_comp = var_comp_summary)
 
 } # Close function
 
@@ -113,23 +170,65 @@ herit_boot.lmerMod <- function(object, exp, boot.reps = 1000, alpha = 0.05, ...)
   # Create a function to calculate heritability from the model object
   herit_use <- function(object) herit(object = object, exp = exp, other_args)
 
-  # Perform bootstrapping
-  boot_herit <- bootMer(x = object, FUN = herit_use, nsim = boot.reps, type = "parametric", .progress = "txt")
 
-  # Extract the original fit
-  base_herit <- boot_herit$t0
+  ## Perform bootstrapping
+  # First simulate from the model
+  sim_response <- simulate(object = object, nsim = boot.reps)
+
+  # Get the column position of the response variable in the model.frame
+  resp_pos <- attr(terms(mf), "response")
+
+  # Update the model frame with the data
+  mf_update <- lapply(X = sim_response, FUN = function(x) {
+    mf[,resp_pos] <- x
+    return(mf)
+  })
+
+  # Update and fit the models with the new data
+  sim_refit <- lapply(X = mf_update, function(x) update(object, data = x))
+
+  # Calculate heritability on the original data
+  base_herit <- herit_use(object)
+  # Calculate the heritability for each new model object
+  boot_herit <- lapply(sim_refit, herit_use)
+
+
+  ## Calculate standard error, bias, and confidence intervals for heritability
+  ## and the variance components
+
+  # First pull out the heritability
+  h_list <- sapply(X = boot_herit, "[[", "heritability")
+
   # Calculate the standard error
-  se <- sd(boot_herit$t)
+  h_se <- sd(h_list)
   # Calculate the bias
-  bias <- mean(boot_herit$t) - base_herit
+  h_bias <- mean(h_list) - base_herit$heritability
 
   # Calculate the confidence interval
-  ci_lower = (2 * base_herit) - quantile(boot_herit$t, 1 - (alpha / 2))
-  ci_upper = (2 * base_herit) - quantile(boot_herit$t, (alpha / 2))
+  h_ci <- quantile(h_list, probs = c((alpha / 2), 1 - (alpha / 2)))
 
-  # Return the heritability and the standard error
-  data.frame(heritability = base_herit, se = se, bias = bias, ci_lower = ci_lower,
-             ci_upper = ci_upper, row.names = NULL)
+
+  ## Now do the same for the variance components
+  var_comp_list <- lapply(X = boot_herit, "[[", "var_comp")
+  # Condense into a usable matrix
+  var_comp_mat <- sapply(X = var_comp_list, FUN = "[[", "variance")
+  row.names(var_comp_mat) <- var_comp_list[[1]]$source
+
+  ## Apply a function by rows
+  var_comp_se <- apply(X = var_comp_mat, MARGIN = 1, FUN = sd)
+  var_comp_bias <- rowMeans(var_comp_mat) - base_herit$var_comp$variance
+  var_comp_ci <- apply(X = var_comp_mat, MARGIN = 1, FUN = quantile, probs = c((alpha / 2), 1 - (alpha / 2)))
+
+
+  ## Package everything together
+  h_summary <- data.frame(heritability = base_herit$heritability, std.error = h_se, bias = h_bias, t(h_ci),
+                          check.names = FALSE)
+  var_comp_summary <- data.frame(base_herit$var_comp, std.error = var_comp_se,
+                                 bias = var_comp_bias, t(var_comp_ci), row.names = NULL,
+                                 stringsAsFactors = FALSE, check.names = FALSE)
+
+  # Return a list
+  list(heritability = h_summary, var_comp = var_comp_summary)
 
 } # Close the function
 

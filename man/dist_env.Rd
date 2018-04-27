@@ -47,4 +47,5 @@ yang_barley_clust <- hclust(yang_barley_dist, method = "average")
 plot(yang_barley_clust)
 }
 
+
 }

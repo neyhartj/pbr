@@ -19,7 +19,7 @@
 #'
 #' @export
 #'
-fw_mixed <- function(y, GEN, ENV) {
+fw_mixed <- function(formula, data, subset, weights) {
 
   # Convert genotypes and environments to factors
   GEN <- factor(GEN)

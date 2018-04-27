@@ -8,7 +8,7 @@
 #' \code{"geno / (geno + (Residual / r))"}. Variables in the expression should be variance
 #' components derived from restricted maximum likelihood (REML) or from the mean squares
 #' from an ANOVA table.
-#' @param ms_exp A named list of expressions used to calculate the variance components.
+#' @param ms.exp A named list of expressions used to calculate the variance components.
 #' The names of the list should be names of the variance components used in the heritability
 #' expression (\code{exp}). Note the expected residual variance is equal to the observed
 #' mean squares for the residuals. See \emph{Examples} for examples.
@@ -41,27 +41,25 @@
 #' n_e <- 36
 #'
 #' # Fit a linear model using lm
-#' lm_mod <- lm(yield ~ gen + env + gen:env + rep %in% env, data = gauch_soy1)
+#' lm_mod <- lm(yield ~ gen + env + gen:env + rep:env, data = gauch_soy1)
 #'
 #' # Variance components from a fixed effects model are derived from the ANOVA table.
 #' # The function also required expressions to calculate the variance components
-#' ms_exp <- list("gen:env" = "(gen:env - Residuals) / n_r",
+#' ms.exp <- list("gen:env" = "(gen:env - Residuals) / n_r",
 #'                "gen" = "(gen - gen:env) / (n_r * n_e)")
 #'
 #' exp = "gen / (gen + (gen:env / n_e) + (Residuals / n_r))"
 #'
-#' herit(object = lm_mod, exp = exp, ms_exp = ms_exp, n_r = n_r, n_e = n_e)
+#' herit(object = lm_mod, exp = exp, ms.exp = ms.exp, n_r = n_r, n_e = n_e)
 #'
 #' # Fit a linear model using lmer
-#' lmer_mod <- lmer(yield ~ (1|gen) + env + (1|gen:env) + (1|rep:env), data = gauch_soy1)
+#' lmer_mod <- lmer(yield ~ (1|gen) + (1|env) + (1|gen:env) + (1|env:rep), data = gauch_soy1)
 #' # Calculate heritability
 #' herit(object = lmer_mod, exp = "gen / (gen + (gen:env / n_e) + (Residual / n_r))",
 #'       n_r = n_r, n_e = n_e)
 #'
 #' @import dplyr
 #' @import lme4
-#' @importFrom stringr str_replace_all
-#' @importFrom broom tidy
 #'
 #' @export
 #'
@@ -71,22 +69,27 @@ herit <- function(object, exp, ...) {
 
 } # Close the function
 
-
-herit.lm <- function(object, exp, ms_exp, ...) {
+#' @rdname herit
+#' @export
+herit.lm <- function(object, exp, ms.exp, ...) {
 
   # Remove colons from the expressions
-  ms_exp1 <- lapply(ms_exp, str_replace_all, ":", "")
-  exp1 <- str_replace_all(string = exp, pattern = ":", replacement = "")
+  ms.exp1 <- lapply(ms.exp, function(x) gsub(pattern = ":", replacement = "", x = x))
+  exp1 <- gsub(pattern = ":", replacement = "", x = exp)
 
   # Get variance components
-  anova_table <- tidy(anova(object))
+  anova_table <- as.data.frame(anova(object))
+  # Add the terms
+  anova_table <- cbind(term = row.names(anova_table), anova_table)
+  # Adjust the column names
+  names(anova_table) <- gsub(x = tolower(names(anova_table)), pattern = " ", replacement = "")
 
   # Make sure the terms are in the anova table
-  if(!all(names(ms_exp1) %in% anova_table$term))
-    stop("The names in 'ms_exp' do not match the terms in the model.")
+  if(!all(names(ms.exp1) %in% row.names(anova_table)))
+    stop("The names in 'ms.exp' do not match the terms in the model.")
 
   # Change the names
-  names(ms_exp1) <- str_replace_all(string = names(ms_exp1), pattern = ":", replacement = "")
+  names(ms.exp1) <- gsub(pattern = ":", replacement = "", x = names(ms.exp1))
 
   # Capture the other arguments
   other_args <- list(...)
@@ -97,7 +100,7 @@ herit.lm <- function(object, exp, ms_exp, ...) {
   }
 
   # Parse the equation text
-  ms_exp_parsed <- lapply(X = ms_exp1, function(x) parse(text = x))
+  ms.exp_parsed <- lapply(X = ms.exp1, function(x) parse(text = x))
   exp_parsed <- parse(text = exp1)
 
 
@@ -110,7 +113,7 @@ herit.lm <- function(object, exp, ms_exp, ...) {
   # Extract the mean squares and send to the environment
   for (tm in anova_table$term) {
     # Remove colons
-    term_name <- str_replace_all(string = tm, pattern = ":", replacement = "")
+    term_name <- gsub(x = tm, pattern = ":", replacement = "")
 
     assign(x = term_name, value = subset(anova_table, term == tm, meansq, drop = TRUE),
                                       envir = exp_env)
@@ -118,13 +121,19 @@ herit.lm <- function(object, exp, ms_exp, ...) {
   }
 
   # Evaluate the mean squares expressions
-  ms_eval <- lapply(ms_exp_parsed, eval, envir = exp_env)
+  ms_eval <- sapply(X = ms.exp_parsed, eval, envir = exp_env)
 
   # Assign names
   for (tm in names(ms_eval))  assign(x = tm, value = ms_eval[[tm]], envir = exp_env)
 
-  # Evaluate the exp expression and return the heritability
-  eval(exp_parsed, envir = exp_env)
+  # Evaluate the exp expression and calculate the heritability
+  h2 <- eval(exp_parsed, envir = exp_env)
+  var_comp <- data.frame(source = c(names(ms_eval), "Residuals"),
+                         variance = c(ms_eval, subset(anova_table, term == "Residuals", meansq, drop = TRUE)),
+                         row.names = NULL, stringsAsFactors = FALSE)
+
+  # Return a list of the heritability and the variance components
+  list(heritability = h2, var_comp = var_comp)
 
 } # Close the function
 
@@ -134,10 +143,10 @@ herit.lm <- function(object, exp, ms_exp, ...) {
 herit.lmerMod <- function(object, exp, ...) {
 
   # Remove colons from the expression
-  exp1 <- str_replace_all(string = exp, pattern = ":", replacement = "")
+  exp1 <- gsub(x = exp, pattern = ":", replacement = "")
 
   # Get variance components
-  var_comp <- as.data.frame(VarCorr(object))
+  var_comp_df <- as.data.frame(VarCorr(object))
 
   # Capture the other arguments
   other_args <- list(...)
@@ -157,11 +166,11 @@ herit.lmerMod <- function(object, exp, ...) {
   exp_parsed <- parse(text = exp1)
 
   # Extract the variance components from the model and assign to individual objects
-  for (term in var_comp$grp) {
+  for (term in var_comp_df$grp) {
     # Remove colons
-    term_name <- str_replace_all(string = term, pattern = ":", replacement = "")
+    term_name <- gsub(x = term, pattern = ":", replacement = "")
 
-    assign(x = term_name, value = subset(var_comp, grp == term, vcov, drop = TRUE),
+    assign(x = term_name, value = subset(var_comp_df, grp == term, vcov, drop = TRUE),
                                     envir = exp_env)
 
   }
@@ -169,7 +178,12 @@ herit.lmerMod <- function(object, exp, ...) {
   # Assign the parsed expression to the environment
   assign(x = "exp_parsed", value = exp_parsed, envir = exp_env)
 
-  # Evaluate the exp expression and return the heritability
-  eval(expr = exp_parsed, envir = exp_env)
+  # Evaluate the exp expression and calculate the heritability
+  h2 <- eval(expr = exp_parsed, envir = exp_env)
+  var_comp <- subset(var_comp_df, , c(grp, vcov))
+  names(var_comp) <- c("source", "variance")
+
+  # Return a list of the heritability and the variance components
+  list(heritability = h2, var_comp = var_comp)
 
 }

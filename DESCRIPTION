@@ -1,34 +1,29 @@
 Package: pbr
-Title: Companion R package for the book "Plant Breeding in R"
-Version: 0.0.0.9000
+Title: Companion to Plant Breeding in R
+Date: 2018-05-01
+Version: 0.1.0
 Authors@R: person("Jeff", "Neyhart", email = "neyhartje@gmail.com", role = c("aut", "cre"))
-Description: The package includes relevant data and convenience functions for
-    running the code included in "Plant Breeding in R."
+Description: Loads packages, functions and datasets to accompany J. Neyhart, Plant 
+    Breeding in R (in prep.). 
 Depends:
-    R (>= 3.3.2)
+    R (>= 3.4.0)
 Imports:
     dplyr,
     readr,
-    purrr,
-    stringr,
     tidyr,
     ggplot2,
-    broom,
     qtl,
     lme4,
     rrBLUP,
-    EMMREML,
-    BGLR,
     agricolae,
     agridat
 Suggests:
-    modelr,
-    purrr,
     knitr,
+    broom,
     rmarkdown,
     PopVar,
     lsmeans,
-    parallel
+    EMMREML
 License: MIT + file LICENSE
 RoxygenNote: 6.0.1
 VignetteBuilder: knitr

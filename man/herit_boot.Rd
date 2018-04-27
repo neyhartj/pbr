@@ -5,7 +5,7 @@
 \alias{herit_boot.lmerMod}
 \title{Heritability confidence interval by bootstrap}
 \usage{
-herit_boot(object, exp, ms_exp, boot.reps = 1000, alpha = 0.05, ...)
+herit_boot(object, ...)
 
 \method{herit_boot}{lmerMod}(object, exp, boot.reps = 1000, alpha = 0.05,
   ...)
@@ -13,17 +13,17 @@ herit_boot(object, exp, ms_exp, boot.reps = 1000, alpha = 0.05, ...)
 \arguments{
 \item{object}{A model object. See \emph{Details} for accepted classes.}
 
+\item{...}{Other arguments to pass. This is generally a list of other objects
+that are in \code{exp}, but may not be found in \code{object}. For instance, if
+the argument \code{exp = "geno / (geno + (Residual / r))"} was passed, you would
+also pass the argument \code{r = 2}.}
+
 \item{exp}{A quoted expression used to calculate the heritability. For instance,
 \code{"geno / (geno + (Residual / r))"}.}
 
 \item{boot.reps}{The number of bootsrap replicates.}
 
 \item{alpha}{The significance level for the confidence interval.}
-
-\item{...}{Other arguments to pass. This is generally a list of other objects
-that are in \code{exp}, but may not be found in \code{object}. For instance, if
-the argument \code{exp = "geno / (geno + (Residual / r))"} was passed, you would
-also pass the argument \code{r = 2}.}
 }
 \value{
 A \code{data.frame} with the following values:
@@ -37,6 +37,36 @@ A \code{data.frame} with the following values:
   \item{ci_lower}{The lower limit of the confidence interval.}
   \item{ci_upper}{The upper limit of the confidence interval.}
 }
+
+#' # Use the gauch.soy dataset
+data("gauch.soy")
+
+# Filter
+gauch_soy1 <- gauch.soy %>%
+  group_by(env) %>%
+  filter(n_distinct(gen, rep) == 28)
+
+# Set the number of reps and number of environments
+n_r <- 4
+n_e <- 36
+
+# Fit a linear model using lm
+lm_mod <- lm(yield ~ gen + env + gen:env + rep %in% env, data = gauch_soy1)
+
+# Variance components from a fixed effects model are derived from the ANOVA table.
+# The function also required expressions to calculate the variance components
+ms.exp <- list("gen:env" = "(gen:env - Residuals) / n_r",
+               "gen" = "(gen - gen:env) / (n_r * n_e)")
+
+exp = "gen / (gen + (gen:env / n_e) + (Residuals / n_r))"
+
+herit(object = lm_mod, exp = exp, ms.exp = ms.exp, n_r = n_r, n_e = n_e)
+
+# Fit a linear model using lmer
+lmer_mod <- lmer(yield ~ (1|gen) + (1|env) + (1|gen:env) + (1|env:rep), data = gauch_soy1)
+# Calculate heritability
+herit(object = lmer_mod, exp = "gen / (gen + (gen:env / n_e) + (Residual / n_r))",
+      n_r = n_r, n_e = n_e)
 }
 \description{
 Heritability confidence interval by bootstrap

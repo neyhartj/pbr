@@ -2,10 +2,13 @@
 % Please edit documentation in R/herit.R
 \name{herit}
 \alias{herit}
+\alias{herit.lm}
 \alias{herit.lmerMod}
 \title{Calculate heritability from fitted model}
 \usage{
 herit(object, exp, ...)
+
+\method{herit}{lm}(object, exp, ms.exp, ...)
 
 \method{herit}{lmerMod}(object, exp, ...)
 }
@@ -22,7 +25,7 @@ that are in \code{exp}, but may not be found in \code{object}. For instance, if
 the argument \code{exp = "geno / (geno + (Residual / r))"} was passed, you would
 also pass the argument \code{r = 2}.}
 
-\item{ms_exp}{A named list of expressions used to calculate the variance components.
+\item{ms.exp}{A named list of expressions used to calculate the variance components.
 The names of the list should be names of the variance components used in the heritability
 expression (\code{exp}). Note the expected residual variance is equal to the observed
 mean squares for the residuals. See \emph{Examples} for examples.}
@@ -53,19 +56,19 @@ n_r <- 4
 n_e <- 36
 
 # Fit a linear model using lm
-lm_mod <- lm(yield ~ gen + env + gen:env + rep \%in\% env, data = gauch_soy1)
+lm_mod <- lm(yield ~ gen + env + gen:env + rep:env, data = gauch_soy1)
 
 # Variance components from a fixed effects model are derived from the ANOVA table.
 # The function also required expressions to calculate the variance components
-ms_exp <- list("gen:env" = "(gen:env - Residuals) / n_r",
+ms.exp <- list("gen:env" = "(gen:env - Residuals) / n_r",
                "gen" = "(gen - gen:env) / (n_r * n_e)")
 
 exp = "gen / (gen + (gen:env / n_e) + (Residuals / n_r))"
 
-herit(object = lm_mod, exp = exp, ms_exp = ms_exp, n_r = n_r, n_e = n_e)
+herit(object = lm_mod, exp = exp, ms.exp = ms.exp, n_r = n_r, n_e = n_e)
 
 # Fit a linear model using lmer
-lmer_mod <- lmer(yield ~ (1|gen) + env + (1|gen:env) + (1|rep:env), data = gauch_soy1)
+lmer_mod <- lmer(yield ~ (1|gen) + (1|env) + (1|gen:env) + (1|env:rep), data = gauch_soy1)
 # Calculate heritability
 herit(object = lmer_mod, exp = "gen / (gen + (gen:env / n_e) + (Residual / n_r))",
       n_r = n_r, n_e = n_e)

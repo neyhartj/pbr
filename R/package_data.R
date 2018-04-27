@@ -1,22 +1,55 @@
+#' Genotypic data on a two-row barley population
+#'
+#' A \code{matrix} of genomewide marker data. 1614 barley individuals were genotyped
+#' with 2187 DNA markers. The data has been curated and filtered to remove markers
+#' and individuals with a high amount of missing data.
+#'
+#' \itemize{
+#'  \item plot_id The ID of the particular sample in a particular plot.
+#'  \item row The row
+#'  \item column The column
+#'  \item line_name The name of the entry
+#'  \item plot The plot number
+#'  \item tray_row:pedigree Extra information unique to this field book table
+#'  \item Continuous A simulated continuous trait (e.g. height)
+#'  \item Discrete A simulated categorical/discrete trait (e.g. lodging degree)
+#'  \item Multi A simulated multi-categorical trait (e.g. multiple disease ratings on a single plot)
+#'  \item OneOutlier A simulated continuous trait with a single outlier
+#'  \item SpatialGradient A simulated continuous trait with a strong gradient across rows
+#' }
+#'
+#' @format A data frame with 200 rows and 14 variables
+#'
+#' @source
+#' This sample is provided in the Field Book Android app.
+#'
+#'
+"tr_cap_genos_mat"
+
+
+
+
+
+
 #' Example Genotype Matrix
 #'
 #'
 #'
 #'
 #'
-"popvar_data_genos"
+# "popvar_data_genos"
 
 
 #' Example genetic map
 #'
 #'
-"popvar_data_map"
+# "popvar_data_map"
 
 
 #' Example phenotypic data
 #'
 #'
-"popvar_data_phenos"
+# "popvar_data_phenos"
 
 #' Genotypic data from the two-row barley CAP
 #'
