@@ -37,22 +37,24 @@ pull_effects.lm <- function(object, gen.col = "gen", env.col = "env") {
   }
 
   ## Get the main effects
-  effs <- lapply(X = main_terms, FUN = Effect, mod = object)
-  effs1 <- lapply(X = effs, FUN = "[[", "fit")
+  effs <- lapply(X = main_terms, FUN = Effect, mod = object, confint = FALSE)
+  # Create vectors of the effects with the level names
+  effs1 <- lapply(X = effs, FUN = function(eff_obj) {
+    setNames(object = c(eff_obj$fit), nm = eff_obj$variables[[1]]$levels) })
+  # Subtract the grand mean
   effs2 <- setNames(object = lapply(X = effs1, FUN = `-`, grand_mean), nm = c(gen.col, env.col))
 
   # Convert to data.frames
-  gen_eff <- data.frame(gen = levels(mf[[gen.col]]), gen_main_eff = c(effs2[[gen.col]]),
-                        row.names = NULL, stringsAsFactors = FALSE)
-  env_eff <- data.frame(env = levels(mf[[env.col]]), env_main_eff = c(effs2[[env.col]]),
-                        row.names = NULL, stringsAsFactors = FALSE)
+  gen_eff <- setNames(object = as.data.frame(effs2[[gen.col]]), nm = "gen_main_eff")
+  env_eff <- setNames(object = as.data.frame(effs2[[env.col]]), nm = "env_main_eff")
 
   ## Get the interaction effects (gxe)
-  int_eff <- allEffects(object)[[gxe_term]]
+  int_eff <- allEffects(mod = object, confint = FALSE)[[gxe_term]]
   int_eff1 <- cbind(int_eff$x, int_eff = int_eff$fit)
 
   ## Combine
-  all_effects <- merge(x = merge(x = int_eff1, y = gen_eff, by = gen.col), y = env_eff, by = env.col)
+  all_effects <- merge(x = merge(x = int_eff1, y = gen_eff, by.x = gen.col, by.y = "row.names"),
+                       y = env_eff, by.x = env.col, by.y = "row.names")
   # Recalculate interaction effects
   all_effects$int_eff <- all_effects$int_eff - grand_mean - all_effects$gen_main_eff - all_effects$env_main_eff
   # Add grand mean
@@ -125,22 +127,46 @@ sreg <- function(formula, data, gen.col = "gen", env.col = "env", n.terms = 1) {
   resp_var_names <- var_names[attr(mod_terms, "response")]
   pred_var_names <- setdiff(var_names, resp_var_names)
 
-  ## Fit the fixed-effect model
-  # First set the contrasts
-  contr <- as.list(rep("contr.sum", length(pred_var_names)))
-  names(contr) <- pred_var_names
+  # Classes of the variables
+  var_class <- attr(mod_terms, "dataClasses")
 
-  ## Set the contrasts
+
+  ## Trim the data for genotypes that are observed at least once in each environment
+  tabs_form <- as.formula(paste("~ ", gen.col, "+", env.col))
+  mf_tabs <- xtabs(formula = tabs_form, data = mf)
+
+  # Count the observations of genotypes
+  gen_count <- apply(X = mf_tabs, MARGIN = 1, FUN = sum)
+  # Remove those with < 2 observations
+  gen_to_keep <- names(gen_count)[gen_count >= 2]
+
+  # If this is length 0, error out
+  if (length(gen_to_keep) <= 1)
+    stop("There is not enough data to estimate interactions. Check the balance of the dataset.")
+
+  ## Filter the mf
+  mf1 <- mf[mf[[gen.col]] %in% gen_to_keep,, drop = FALSE]
+
+
+  ### Model-fitting
+
+  ## Convert the predictors to factors, if characters, then set the contrasts
+  ## to contr.sum
   for (var in pred_var_names) {
-    C_mat <- C(object = mf[[var]], contr = "contr.sum")
-    # Set the column names of the contrast matrix
-    contrasts(C_mat) <- `colnames<-`(x = contrasts(C_mat), value = head(levels(C_mat), -1))
+    # Determine the class of the predictor
+    if (var_class[var] %in% c("factor", "character")) {
 
-    mf[[var]] <- C_mat
-  }
+      mf1[[var]] <- as.factor(mf1[[var]])
 
+      C_mat <- C(object = mf1[[var]], contr = "contr.sum")
+      # Set the column names of the contrast matrix
+      contrasts(C_mat) <- `colnames<-`(x = contrasts(C_mat), value = head(levels(C_mat), -1))
 
-  fit <- lm(formula = formula, data = mf)
+      mf1[[var]] <- C_mat
+
+    }}
+
+  fit <- lm(formula = formula, data = mf1)
 
   ## Get the effects
   all_effects <- pull_effects(object = fit, gen.col = gen.col, env.col = env.col)
@@ -246,7 +272,7 @@ sreg <- function(formula, data, gen.col = "gen", env.col = "env", n.terms = 1) {
 
   ## Assemble an output list
   sreg <- list(
-    fit = fit,
+    anova = anova(fit),
     coefficients = coef(fit),
     residuals = residual_values,
     fitted.values = fitted_values,
