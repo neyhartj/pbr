@@ -3,12 +3,19 @@
 \docType{data}
 \name{tr_cap_genos_hmp}
 \alias{tr_cap_genos_hmp}
-\title{Marker genetic map for the two-row barley CAP}
-\format{An object of class \code{tbl_df} (inherits from \code{tbl}, \code{data.frame}) with 2187 rows and 1618 columns.}
+\title{Genotypic data on a two-row barley population}
+\format{An object of class \code{data.frame} with 2716 rows and 1626 columns. The first 4
+columns contain the marker names, the allele states, the chromosome, and the position
+on each chromosome. The remaining columns contain the genotype states for each barley line.}
+\source{
+This data was downloaded from the Triticeae Toolbox at https://triticeaetoolbox.org/barley/.
+}
 \usage{
 tr_cap_genos_hmp
 }
 \description{
-Marker genetic map for the two-row barley CAP
+A \code{data.frame} of genomewide marker data. 1622 barley individuals were genotyped
+with 2716 DNA markers. The data has been curated and filtered to remove markers
+and individuals with a high amount of missing data.
 }
 \keyword{datasets}

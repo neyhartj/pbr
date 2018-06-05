@@ -3,12 +3,18 @@
 \docType{data}
 \name{tr_cap_phenos}
 \alias{tr_cap_phenos}
-\title{Phenotypic data for the two-row barley CAP}
-\format{An object of class \code{tbl_df} (inherits from \code{tbl}, \code{data.frame}) with 1614 rows and 5 columns.}
+\title{Phenotypic data on a two-row barley population}
+\format{An object of class \code{data.frame} with 2120 rows and 4 columns. Columns include
+the names of barley lines, the trial in which the phenotype was recorded, values for grain yield,
+and values for plant height.}
+\source{
+This data was downloaded from the Triticeae Toolbox at https://triticeaetoolbox.org/barley/.
+}
 \usage{
 tr_cap_phenos
 }
 \description{
-Phenotypic data for the two-row barley CAP
+A \code{data.frame} of phenotypic data. 1598 barley individuals were phenotyped in 6 trials
+for grain yield and plant height.
 }
 \keyword{datasets}

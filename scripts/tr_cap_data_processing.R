@@ -8,11 +8,11 @@ library(purrrlyr)
 library(lme4)
 
 # Read in line information
-line_data <- read_csv("C:/Users/Jeff/Google Drive/Barley Lab/Projects/Genomics/BOPA/2R_CAP/2R_CAP_line_details.csv")
+line_data <- read_csv("C:/Users/Jeff/GoogleDrive/BarleyLab/Projects/Genomics/BOPA/2R_CAP/2R_CAP_line_details.csv")
 
 
 # Read in geno information
-genos <- read_tsv("C:/Users/Jeff/Google Drive/Barley Lab/Projects/Genomics/BOPA/2R_CAP/2R_CAP_T3_download/genotype.hmp.txt")
+genos <- read_tsv("C:/Users/Jeff/GoogleDrive/BarleyLab/Projects/Genomics/BOPA/2R_CAP/2R_CAP_T3_download/genotype.hmp.txt")
 
 # Parse the line names
 line_name <- genos %>%
@@ -58,6 +58,9 @@ tr_cap_phenos <- phenos2 %>%
   group_by(line) %>%
   summarize_at(vars(grainyield:kernelweight), mean, na.rm = TRUE)
 
+
+
+
 # Extract the genotypes for those lines with phenotype data
 genos_anno <- genos %>%
   select(marker = rs, alleles:pos, which(names(.) %in% tr_cap_phenos$line))
@@ -102,28 +105,39 @@ to_keep <- rowMeans(is.na(mat4)) <= 0.10
 
 mat5 <- mat4[to_keep,]
 
+## Find the common barley individuals
+lines_tokeep <- intersect(names(tr_cap_genos), unique(tr_cap_phenos_met$line))
+
 ## Extract marker metadata
 tr_cap_genos_hmp <- tr_cap_genos %>%
   filter(marker %in% colnames(mat5)) %>%
-  select(marker:pos, row.names(mat5)) %>%
-  mutate(pos = pos / 1000)
+  select(marker:pos, lines_tokeep) %>%
+  mutate(pos = pos / 1000) %>%
+  as.data.frame()
 
-tr_cap_genos_mat <- mat5[,colnames(mat5) %in% tr_cap_genos_hmp$marker]
+tr_cap_genos_mat <- mat5[rownames(mat5) %in% lines_tokeep,
+                         colnames(mat5) %in% tr_cap_genos_hmp$marker]
 
 
 
-
-# Edit the phenos
-tr_cap_phenos <- tr_cap_phenos %>%
-  filter(line %in% row.names(tr_cap_genos_mat))
-
-tr_cap_phenos_met <- tr_cap_phenos_met %>%
-  filter(line %in% row.names(tr_cap_genos_mat))
+tr_cap_phenos <- tr_cap_phenos_met %>%
+  spread(trait, value) %>%
+  select(line, names(.)) %>%
+  filter(line %in% row.names(tr_cap_genos_mat)) %>%
+  as.data.frame()
 
 ## Save
-devtools::use_data(tr_cap_genos_hmp, tr_cap_genos_mat, tr_cap_phenos, tr_cap_phenos_met,
+devtools::use_data(tr_cap_genos_hmp, tr_cap_genos_mat, tr_cap_phenos,
                    overwrite = T)
 
 
 
+## Randomly sample some lines to use in association mapping (and probably GS)
+set.seed(1023)
 
+n_lines <- 500
+barley_cap_phenos <- sample_n(tr_cap_phenos, n_lines) %>% arrange(line)
+barley_cap_genos <- tr_cap_genos %>%
+  select(marker:pos, barley_cap_phenos$line)
+
+devtools::use_data(barley_cap_phenos, barley_cap_genos, overwrite = T)
