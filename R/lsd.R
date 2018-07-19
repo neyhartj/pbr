@@ -159,7 +159,6 @@ lsd.lmerMod <- function(object, geno.term, env.term = NULL, ge.term = NULL, alph
   vcor <- as.data.frame(VarCorr(object))
 
   # Are the terms in the argument in the anova table
-  stopifnot(geno.term %in% vcor$grp)
   stopifnot(ge.term %in% vcor$grp)
 
   # First pull out the model frame

@@ -1,5 +1,4 @@
 .Rproj.user
 .Rhistory
 .RData
-heritability_simulation.R
-inst/doc
+.Ruserdata

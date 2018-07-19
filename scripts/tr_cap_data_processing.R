@@ -130,14 +130,17 @@ tr_cap_phenos <- tr_cap_phenos_met %>%
 devtools::use_data(tr_cap_genos_hmp, tr_cap_genos_mat, tr_cap_phenos,
                    overwrite = T)
 
+#
+#
+# ## Randomly sample some lines to use in association mapping (and probably GS)
+# min_obs <- 3
+# barley_cap_phenos <- tr_cap_phenos %>%
+#   group_by(line) %>%
+#   filter(n() == 3) %>%
+#   ungroup() %>%
+#   as.data.frame()
+# barley_cap_genos <- tr_cap_genos_hmp %>%
+#   select(marker, chrom:pos, barley_cap_phenos$line)
+#
+# devtools::use_data(barley_cap_phenos, barley_cap_genos, overwrite = T)
 
-
-## Randomly sample some lines to use in association mapping (and probably GS)
-set.seed(1023)
-
-n_lines <- 500
-barley_cap_phenos <- sample_n(tr_cap_phenos, n_lines) %>% arrange(line)
-barley_cap_genos <- tr_cap_genos %>%
-  select(marker:pos, barley_cap_phenos$line)
-
-devtools::use_data(barley_cap_phenos, barley_cap_genos, overwrite = T)
