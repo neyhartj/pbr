@@ -7,8 +7,8 @@
 \usage{
 herit_boot(object, ...)
 
-\method{herit_boot}{lmerMod}(object, exp, boot.reps = 1000, alpha = 0.05,
-  ...)
+\method{herit_boot}{lmerMod}(object, exp, boot.reps = 1000,
+  alpha = 0.05, ...)
 }
 \arguments{
 \item{object}{A model object. See \emph{Details} for accepted classes.}

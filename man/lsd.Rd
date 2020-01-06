@@ -11,8 +11,8 @@ lsd(object, ...)
 \method{lsd}{lm}(object, geno.term, env.term = NULL, ge.term = NULL,
   alpha = 0.05)
 
-\method{lsd}{lmerMod}(object, geno.term, env.term = NULL, ge.term = NULL,
-  alpha = 0.05)
+\method{lsd}{lmerMod}(object, geno.term, env.term = NULL,
+  ge.term = NULL, alpha = 0.05)
 }
 \arguments{
 \item{object}{A model object of class \code{lm}, \code{aov}, \code{glm}, or \code{lmer}.}

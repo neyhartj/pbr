@@ -1,65 +1,44 @@
-#' Genotypic data on a two-row barley population
+#' Example data from a two-row barley population
 #'
 #' @description
-#' A \code{data.frame} of genomewide marker data. 1598 barley individuals were genotyped
-#' with 2187 DNA markers. The data has been curated and filtered to remove markers
-#' and individuals with a high amount of missing data.
+#' A \code{list} of phenotypic and molecular marker data on a population of 1590
+#' two-row barley lines.
 #'
-#' @format An object of class \code{data.frame} with 2187 rows and 1602 columns. The first 4
-#' columns contain the marker names, the allele states, the chromosome, and the position
-#' on each chromosome. The remaining columns contain the genotype states for each barley line.
+#' @format An object of class \code{list} with three elements: 1) \code{pheno} - a
+#' \code{data.frame} with 2104 rows and 4 columns. The first column contains the
+#' line name, the second column contains the trial name, the and the remaining two
+#' columns contain phenotypic data on two quantitative traits; 2) \code{geno} - a
+#' \code{data.frame} with 2187 rows and 1594 columns. The first 4 columns contain
+#' information on the name, allels, chromosome, and genetic
+#' map position (respectively) of 2187 molecular markers. Remaining columns
+#' contain information on the genotypic states at each of those markers for all
+#' of the barley lines; 3) \code{geno_mat} - a
+#' \code{matrix} with 1590 rows and 2187 columns. The elements of the matrix contain
+#' the genotypic states at each of 2187 markers for each of 1590 barley lines.
 #'
 #' @source
 #' This data was downloaded from the Triticeae Toolbox at https://triticeaetoolbox.org/barley/.
 #'
-"tr_cap_genos_hmp"
+"cap.barley"
 
 
-#' Phenotypic data on a two-row barley population
+
+#' Example data from the \code{PopVar} package.
 #'
 #' @description
-#' A \code{data.frame} of phenotypic data. 1590 barley individuals were phenotyped in 6 trials
-#' for grain yield and plant height.
+#' A \code{list} of phenotypic and molecular marker data on a population of 165
+#' six-row barley lines.
 #'
-#' @format An object of class \code{data.frame} with 2104 rows and 4 columns. Columns include
-#' the names of barley lines, the trial in which the phenotype was recorded, values for grain yield,
-#' and values for plant height.
-#'
-#' @source
-#' This data was downloaded from the Triticeae Toolbox at https://triticeaetoolbox.org/barley/.
-#'
-"tr_cap_phenos"
-
-
-#' Phenotypic data on a sample two-row barley population
-#'
-#' @description
-#' A \code{data.frame} of phenotypic data. 246 barley individuals were each phenotyped in 3 trials
-#' for grain yield and plant height.
-#'
-#' @format An object of class \code{data.frame} with 738 rows and 4 columns. The
-#' first column includes the names of barley lines, the second contains the trial
-#' in which the phenotype was recorded, the third contains the values for grain yield,
-#' and the fourth contains the values for plant height.
+#' @format An object of class \code{list} with two elements: 1) \code{pheno} - a
+#' \code{data.frame} with 165 rows and 5 columns. The first column contains the
+#' line name, and the remaining four columns contain phenotypic data on four
+#' quantitative traits; 2) \code{geno} - a \code{data.frame} with 742 rows and 168 columns.
+#' The first 3 columns contain information on the name, chromosome, and genetic
+#' map position (respectively) of 742 molecular markers. Remaining columns
+#' contain information on the genotypic states at each of those markers for all
+#' of the barley lines.
 #'
 #' @source
-#' This data was downloaded from the Triticeae Toolbox at https://triticeaetoolbox.org/barley/.
+#' This data was obtained and lightly edited from the \code{PopVar} package.
 #'
-"barley_cap_phenos"
-
-
-#' Genotypic data on a sample two-row barley population
-#'
-#' @description
-#' A \code{data.frame} of genomewide marker data. 246 barley individuals were genotyped
-#' with 2187 DNA markers. The data has been curated and filtered to remove markers
-#' and individuals with a high amount of missing data.
-#'
-#' @format An object of class \code{data.frame} with 2187 rows and 250 columns. The first 4
-#' columns contain the marker names, the allele states, the chromosome, and the position
-#' on each chromosome. The remaining columns contain the genotype states for each barley line.
-#'
-#' @source
-#' This data was downloaded from the Triticeae Toolbox at https://triticeaetoolbox.org/barley/.
-#'
-"barley_cap_genos"
+"popvar.barley"
