@@ -15,13 +15,13 @@ lr_test <- function(model1, model2) {
   stopifnot(class(model1) == class(model2))
 
   # Remove classes
-  classes_keep <- c("lm", "aov", "merMod")
+  classes_keep <- c("lm", "aov", "merMod", "lmerMod")
   # Stop if not classes
   model1Classes <- class(model1) %in% classes_keep
   model2Classes <- class(model2) %in% classes_keep
 
   if (!all(model1Classes, model2Classes))
-    stop("Models are not of classes: ", paste(classes_keep, collapse = ", "))
+    stop("Models are not one of classes: ", paste(classes_keep, collapse = ", "))
 
   model_list <- list(model1 = model1, model2 = model2)
 
@@ -30,9 +30,12 @@ lr_test <- function(model1, model2) {
   terms_list1 <- lapply(terms_list, attr, "term.labels")
   n_terms <- sapply(X = terms_list1, length)
 
+  # List of df
+  df_list <- sapply(model_list, df.residual)
+
   # Degrees of freedom
-  full_model <- names(which.max(n_terms))
-  red_model <- names(which.min(n_terms))
+  full_model <- names(which.min(df_list))
+  red_model <- names(which.max(df_list))
 
   ## Get the log-likelihoods and store as list
   ll_list <- sapply(X = model_list, FUN = logLik)

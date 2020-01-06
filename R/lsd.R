@@ -177,7 +177,7 @@ lsd.lmerMod <- function(object, geno.term, env.term = NULL, ge.term = NULL, alph
     plot_table <- xtabs(form, object_mf)
 
     n_rep <- harm_mean(plot_table)
-    n_env <- harm_mean(apply(X = ifelse(test = plot_table > 1, 1, 0), MARGIN = 1, FUN = sum))
+    n_env <- harm_mean(apply(X = ifelse(test = plot_table >= 1, 1, 0), MARGIN = 1, FUN = sum))
 
     ## Extract mean squares estimates of sources of variance
     V_GE <- subset(vcor, grp == ge.term, vcov, drop = TRUE)
