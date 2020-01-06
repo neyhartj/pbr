@@ -4,7 +4,7 @@
 # pbr
 
 [![Travis build
-status](https://travis-ci.org/neyhartj/pbr.svg?branch=master)](https://travis-ci.org/neyhartj/pbr)
+status](https://travis-ci.com/neyhartj/pbr.svg?branch=master)](https://travis-ci.com/neyhartj/pbr)
 
 ## Description
 
